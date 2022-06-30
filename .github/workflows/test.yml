@@ -16,6 +16,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Decrypt shared libraries
+        run: gpg --quiet --batch --yes --decrypt --passphrase="${{ secrets.SHARED_LIBRARIES_PASSWORD }}" --output shared-libraries.tar.gz shared-libraries.tar.gz.gpg
+      - name: Extract shared libraries
+        uses: a7ul/tar-action@v1.1.0
+        id: extract
+        with:
+          command: x
+          files: shared-libraries.tar.gz
       - name: Setup .NET Core SDK ${{ matrix.dotnet-version }}
         uses: actions/setup-dotnet@v2
         with:
