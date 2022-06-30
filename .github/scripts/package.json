@@ -1,0 +1,11 @@
+{
+  "name": "steam-guard-get-totp",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./generate-code.js"
+  },
+  "dependencies": {
+    "steam-totp": "^2.1.2"
+  }
+}

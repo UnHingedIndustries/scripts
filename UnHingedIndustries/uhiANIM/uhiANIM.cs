@@ -9,7 +9,8 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.1";
+        const string ScriptVersion = "2.0.3";
+        const string WorkshopItemId = "2825279640";
 
         static class Utils {
             public static string[] GetStepParts(string serializedStep, int requiredCount) {
@@ -278,8 +279,8 @@ namespace UnHingedIndustries.uhiANIM {
         }
 
         /**
-* Describes animation of a segment of the animatronic, e.g. legs.
-*/
+        * Describes animation of a segment of the animatronic, e.g. legs.
+        */
         class AnimationSegment {
             public readonly string Name;
             public readonly Dictionary<String, AnimationSegmentMode> ModeNameToMode;
@@ -291,8 +292,8 @@ namespace UnHingedIndustries.uhiANIM {
         }
 
         /**
-* Describes a particular mode of segment's animation, e.g. legs moving forward.
-*/
+        * Describes a particular mode of segment's animation, e.g. legs moving forward.
+        */
         class AnimationSegmentMode {
             public readonly string Name;
             public readonly List<string> Triggers;
@@ -310,8 +311,8 @@ namespace UnHingedIndustries.uhiANIM {
         }
 
         /**
-* Describes a single step of segment's animation mode, e.g. raising legs.
-*/
+        * Describes a single step of segment's animation mode, e.g. raising legs.
+        */
         interface IAnimationStep {
             bool IsCompleted();
             void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress);
