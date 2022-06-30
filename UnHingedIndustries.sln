@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnHingedIndustriesTests", "UnHingedIndustriesTests\UnHingedIndustriesTests.csproj", "{A825351F-FA5D-4C39-9973-7A84F7DEE3D5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnHingedIndustries", "UnHingedIndustries\UnHingedIndustries.csproj", "{4B4F3D32-59A1-4E44-AF81-5D6C3C6AB579}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A825351F-FA5D-4C39-9973-7A84F7DEE3D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A825351F-FA5D-4C39-9973-7A84F7DEE3D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A825351F-FA5D-4C39-9973-7A84F7DEE3D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A825351F-FA5D-4C39-9973-7A84F7DEE3D5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4B4F3D32-59A1-4E44-AF81-5D6C3C6AB579}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B4F3D32-59A1-4E44-AF81-5D6C3C6AB579}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B4F3D32-59A1-4E44-AF81-5D6C3C6AB579}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B4F3D32-59A1-4E44-AF81-5D6C3C6AB579}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <SpaceEngineersSharedLibsPath Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(HOME)\.local\share\Steam\steamapps\common\SpaceEngineers\Bin64</SpaceEngineersSharedLibsPath>
+        <SpaceEngineersSharedLibsPath Condition="$([MSBuild]::IsOSPlatform('Windows'))">TODO</SpaceEngineersSharedLibsPath> <!--TODO: figure out path for Windows-->
+        <SpaceEngineersSharedLibsPath Condition="'$(SPACE_ENGINEERS_SHARED_LIBS_PATH)' != ''">$(SPACE_ENGINEERS_SHARED_LIBS_PATH)</SpaceEngineersSharedLibsPath>
+        <LangVersion>6</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Reference Include="Sandbox.Common">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\Sandbox.Common.dll</HintPath>
+        </Reference>
+        <Reference Include="Sandbox.Game">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\Sandbox.Game.dll</HintPath>
+        </Reference>
+        <Reference Include="Sandbox.Game.XmlSerializers">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\Sandbox.Game.XmlSerializers.dll</HintPath>
+        </Reference>
+        <Reference Include="Sandbox.Graphics">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\Sandbox.Graphics.dll</HintPath>
+        </Reference>
+        <Reference Include="Sandbox.RenderDirect">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\Sandbox.RenderDirect.dll</HintPath>
+        </Reference>
+        <Reference Include="SpaceEngineers">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\SpaceEngineers.exe</HintPath>
+        </Reference>
+        <Reference Include="SpaceEngineers.Game">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\SpaceEngineers.Game.dll</HintPath>
+        </Reference>
+        <Reference Include="SpaceEngineers.ObjectBuilders">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\SpaceEngineers.ObjectBuilders.dll</HintPath>
+        </Reference>
+        <Reference Include="SpaceEngineers.ObjectBuilders.XmlSerializers">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\SpaceEngineers.ObjectBuilders.XmlSerializers.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Game">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Game.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Game.XmlSerializers">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Game.XmlSerializers.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Input">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Input.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Library">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Library.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Math">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Math.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Math.XmlSerializers">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Math.XmlSerializers.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Mod.Io">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Mod.Io.dll</HintPath>
+        </Reference>
+        <Reference Include="VRage.Scripting">
+            <HintPath>$(SpaceEngineersSharedLibsPath)\VRage.Scripting.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+</Project>
