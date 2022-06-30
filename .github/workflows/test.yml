@@ -31,4 +31,4 @@ jobs:
       - name: Install dependencies
         run: dotnet restore
       - name: Test
-        run: SPACE_ENGINEERS_SHARED_LIBS_PATH='${{ secrets.SPACE_ENGINEERS_SHARED_LIBS_PATH }}' dotnet test --no-restore --verbosity normal
+        run: SPACE_ENGINEERS_SHARED_LIBS_PATH='${{ GITHUB_WORKSPACE }}\shared-libraries' dotnet test --no-restore --verbosity normal
