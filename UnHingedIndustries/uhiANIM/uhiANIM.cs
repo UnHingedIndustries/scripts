@@ -9,7 +9,7 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.5";
+        const string ScriptVersion = "2.0.6";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -774,6 +774,7 @@ namespace UnHingedIndustries.uhiANIM {
                     if (progress.ActiveStepId == mode.Steps.Count - 1) {
                         if (mode.Repeat == false) {
                             doTrigger = false;
+                            progress.ActiveMode = null;
                         }
                         else {
                             progress.ActiveStepId = 0;
