@@ -10,7 +10,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.CSBD {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "1.0.2";
+        const string ScriptVersion = "1.0.3";
         const string WorkshopItemId = "2813105329";
 
         // For immersion purposes only. Set to false if you don't want the booting screen to appear.
@@ -73,9 +73,11 @@ namespace UnHingedIndustries.CSBD {
                                          : ""
                                      );
             if (GetSettingValue("colors")) Me.GetSurface(0).FontColor = _bootingColor;
+            var versionString = "CSBD " + ScriptVersion;
+            var versionSpacingPrefix = string.Concat(Enumerable.Repeat(" ", (21 - versionString.Length) / 2));
             Me.GetSurface(0).WriteText(
                 "\n\n\n UNHINGED INDUSTRIES \n"
-                + "      CSBD v1.0      \n\n"
+                + versionSpacingPrefix + versionString + "\n\n"
                 + "   SYSTEM STARTING\n\n"
                 + " ┌                 ┐\n"
                 + "   " + bootingProgressBar + "\n"

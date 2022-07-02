@@ -9,10 +9,10 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.3";
+        const string ScriptVersion = "2.0.4";
         const string WorkshopItemId = "2825279640";
 
-        static class Utils {
+        public static class Utils {
             public static string[] GetStepParts(string serializedStep, int requiredCount) {
                 var stepParts = serializedStep.Split(';');
                 if (stepParts.Length != requiredCount) {
@@ -25,8 +25,12 @@ namespace UnHingedIndustries.uhiANIM {
 
             public static T GetEnumFromString<T>(string value) where T : struct {
                 T result;
-                Enum.TryParse(value, true, out result);
-                return result;
+                if (Enum.TryParse(value, true, out result)) {
+                    return result;
+                }
+                else {
+                    throw new ArgumentException("Invalid value '" + value + "' for enum " + nameof(T));
+                }
             }
 
             public static List<T> FindBlocks<T>(IMyGridTerminalSystem gridTerminalSystem, ComponentSearchType searchType, string searchString) where T : class, IMyTerminalBlock {
@@ -474,7 +478,7 @@ namespace UnHingedIndustries.uhiANIM {
             Wait
         }
 
-        enum ComponentSearchType {
+        public enum ComponentSearchType {
             Block,
             Blocks,
             Group
@@ -536,32 +540,27 @@ namespace UnHingedIndustries.uhiANIM {
         List<EvaluateTrigger> _triggerEvaluations;
 
         void SetupAnimation() {
-            try {
-                Echo("Setting up animation...");
-                _animation = new Animation(Me, GridTerminalSystem);
+            Echo("Setting up animation...");
+            _animation = new Animation(Me, GridTerminalSystem);
 
-                _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
+            _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
 
-                _triggerEvaluations = _animation.SegmentNamesToSegments.Values
-                                                .SelectMany(segment =>
-                                                    segment.ModeNameToMode.Values.Select(mode => {
-                                                        var progress = _segmentsProgress[segment];
-                                                        var triggers = mode.Triggers
-                                                                           .Select(TranslateTrigger);
+            _triggerEvaluations = _animation.SegmentNamesToSegments.Values
+                                            .SelectMany(segment =>
+                                                segment.ModeNameToMode.Values.Select(mode => {
+                                                    var progress = _segmentsProgress[segment];
+                                                    var triggers = mode.Triggers
+                                                                       .Select(TranslateTrigger);
 
-                                                        return new EvaluateTrigger((argument, moveIndicator) => {
-                                                            if (progress.ActiveMode != mode
-                                                                && triggers.All(trigger => trigger(argument, moveIndicator))) {
-                                                                progress.ActiveMode = mode;
-                                                                progress.ActiveStepId = -1;
-                                                            }
-                                                        });
-                                                    })
-                                                ).ToList();
-            }
-            catch (Exception exception) {
-                Echo("Animation setup failed: " + exception.Message);
-            }
+                                                    return new EvaluateTrigger((argument, moveIndicator) => {
+                                                        if (progress.ActiveMode != mode
+                                                            && triggers.All(trigger => trigger(argument, moveIndicator))) {
+                                                            progress.ActiveMode = mode;
+                                                            progress.ActiveStepId = -1;
+                                                        }
+                                                    });
+                                                })
+                                            ).ToList();
 
             Echo("Animation setup completed.");
         }
