@@ -1,5 +1,5 @@
-![Workshop Deployment Status](https://img.shields.io/github/workflow/status/UnhingedIndustries/scripts/Deploy%20scripts%20to%20Steam%20Workshop?label=Workshop%20Deployment&logo=steam&logoColor=lightblue)
-![Tests Status](https://img.shields.io/github/workflow/status/UnhingedIndustries/scripts/Run%20all%20tests?label=Tests&logo=csharp&logoColor=lightgreen)
+[![Workshop Deployment Status](https://img.shields.io/github/workflow/status/UnhingedIndustries/scripts/Deploy%20scripts%20to%20Steam%20Workshop?label=Workshop%20Deployment&logo=steam&logoColor=lightblue)](https://github.com/UnHingedIndustries/scripts/actions/workflows/deploy-to-workshop.yml)
+[![Tests Status](https://img.shields.io/github/workflow/status/UnhingedIndustries/scripts/Run%20all%20tests?label=Tests&logo=csharp&logoColor=lightgreen)](https://github.com/UnHingedIndustries/scripts/actions/workflows/test.yml)
 [![License: WTFPL](https://img.shields.io/badge/License-WTFPL-red.svg)](http://www.wtfpl.net/txt/copying/)
 
 ## Local setup
