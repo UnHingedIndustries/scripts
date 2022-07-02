@@ -9,7 +9,7 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.6";
+        const string ScriptVersion = "2.0.7";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {

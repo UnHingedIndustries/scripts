@@ -41,7 +41,7 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
  "contentfolder" "${workshopItemPath}"
  "previewfile" "${repositoryScriptPath}/thumb.png"
  "title" "[UHI] ${scriptName} ${scriptVersion}"
- "changenote" "Deploy version ${scriptVersion} from GitHub Actions ${GITHUB_SHA}"
+ "changenote" "Deploy version ${scriptVersion} built from [url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}]${GITHUB_SHA}[/url]"
 }
 EOF
       echo "VDF file generated $(cat "${vdfFilePath}")"
