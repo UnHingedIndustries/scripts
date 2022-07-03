@@ -1,15 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SpaceEngineers.Game.ModAPI.Ingame;
 using System.Text;
-using VRageMath;
 using Sandbox.ModAPI.Ingame;
+using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.9";
+        const string ScriptVersion = "2.0.10";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -18,9 +17,8 @@ namespace UnHingedIndustries.uhiANIM {
                 if (stepParts.Length != requiredCount) {
                     throw new ArgumentException("step requires " + requiredCount + " arguments, received " + stepParts.Length + " in " + serializedStep);
                 }
-                else {
-                    return stepParts;
-                }
+
+                return stepParts;
             }
 
             public static T GetEnumFromString<T>(string value) where T : struct {
@@ -28,9 +26,8 @@ namespace UnHingedIndustries.uhiANIM {
                 if (Enum.TryParse(value, true, out result)) {
                     return result;
                 }
-                else {
-                    throw new ArgumentException("Invalid value '" + value + "' for enum " + nameof(T));
-                }
+
+                throw new ArgumentException("Invalid value '" + value + "' for enum " + nameof(T));
             }
 
             public static List<T> FindBlocks<T>(IMyGridTerminalSystem gridTerminalSystem, ComponentSearchType searchType, string searchString) where T : class, IMyTerminalBlock {
@@ -223,12 +220,14 @@ namespace UnHingedIndustries.uhiANIM {
                                                 .Where(trigger => trigger.Length != 0)
                                                 .ToList();
                 var repeat = deserializedValue.Get(sectionName, "repeat").ToBoolean();
+                var priority = deserializedValue.Get(sectionName, "priority").ToInt32(0);
                 var steps = CreateSteps(deserializedValue.Get(sectionName, "steps"), gridTerminalSystem);
 
                 return new AnimationSegmentMode(
                     modeName,
                     triggers,
                     repeat,
+                    priority,
                     steps
                 );
             }
@@ -300,8 +299,8 @@ namespace UnHingedIndustries.uhiANIM {
             public readonly Dictionary<String, AnimationSegmentMode> ModeNameToMode;
 
             public AnimationSegment(string name, Dictionary<string, AnimationSegmentMode> modeNameToMode) {
-                this.Name = name;
-                this.ModeNameToMode = modeNameToMode;
+                Name = name;
+                ModeNameToMode = modeNameToMode;
             }
         }
 
@@ -314,13 +313,16 @@ namespace UnHingedIndustries.uhiANIM {
 
             public readonly bool Repeat;
 
+            public readonly int Priority;
+
             public readonly List<IAnimationStep> Steps;
 
-            public AnimationSegmentMode(string name, List<string> triggers, bool repeat, List<IAnimationStep> steps) {
-                this.Name = name;
-                this.Triggers = triggers;
-                this.Repeat = repeat;
-                this.Steps = steps;
+            public AnimationSegmentMode(string name, List<string> triggers, bool repeat, int priority, List<IAnimationStep> steps) {
+                Name = name;
+                Triggers = triggers;
+                Repeat = repeat;
+                Priority = priority;
+                Steps = steps;
             }
         }
 
@@ -547,9 +549,8 @@ namespace UnHingedIndustries.uhiANIM {
                 if (indicatorValue == 0 || (indicatorValue < 0 && maximum > 0) || (indicatorValue > 0 && maximum < 0)) {
                     return false;
                 }
-                else {
-                    return Math.Abs(indicatorValue) >= (Math.Abs(maximum) * _deadzonePercentage) / 100;
-                }
+
+                return Math.Abs(indicatorValue) >= (Math.Abs(maximum) * _deadzonePercentage) / 100;
             }
         }
 
@@ -564,11 +565,12 @@ namespace UnHingedIndustries.uhiANIM {
 
             switch (trigger) {
                 case "NONE": return (argument, input) => false;
-                case "CONTROLLER_NO_INPUT": return (argument, input) => 
-                    !input.Forward && !input.Backward && !input.Left && !input.Right && !input.Up && !input.Down
-                    && !input.RollClockwise && !input.RollCounterClockwise
-                    && !input.PitchUp && !input.PitchDown
-                    && !input.RotateLeft && !input.RotateRight;
+                case "CONTROLLER_NO_INPUT":
+                    return (argument, input) =>
+                        !input.Forward && !input.Backward && !input.Left && !input.Right && !input.Up && !input.Down
+                        && !input.RollClockwise && !input.RollCounterClockwise
+                        && !input.PitchUp && !input.PitchDown
+                        && !input.RotateLeft && !input.RotateRight;
                 case "CONTROLLER_FORWARD": return (argument, input) => input.Forward;
                 case "CONTROLLER_BACKWARD": return (argument, input) => input.Backward;
                 case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => !input.Forward && !input.Backward;
@@ -601,21 +603,25 @@ namespace UnHingedIndustries.uhiANIM {
             _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
 
             _triggerEvaluations = _animation.SegmentNamesToSegments.Values
-                                            .SelectMany(segment =>
-                                                segment.ModeNameToMode.Values.Select(mode => {
-                                                    var progress = _segmentsProgress[segment];
-                                                    var triggers = mode.Triggers
-                                                                       .Select(TranslateTrigger);
-
-                                                    return new EvaluateTrigger((argument, input) => {
-                                                        if (progress.ActiveMode != mode
-                                                            && triggers.All(trigger => trigger(argument, input))) {
-                                                            progress.ActiveMode = mode;
+                                            .Select(segment => {
+                                                var modesByPriority = segment.ModeNameToMode.Values.OrderByDescending(mode => mode.Priority).ToList();
+                                                var translatedModeTriggers = modesByPriority.ToDictionary(
+                                                    mode => mode,
+                                                    mode => mode.Triggers.Select(TranslateTrigger).ToList()
+                                                );
+                                                return new EvaluateTrigger((argument, input) => {
+                                                    var foundMode = modesByPriority.FirstOrDefault(mode =>
+                                                        translatedModeTriggers[mode].All(trigger => trigger(argument, input))
+                                                    );
+                                                    if (foundMode != null) {
+                                                        var progress = _segmentsProgress[segment];
+                                                        if (progress.ActiveMode != foundMode) {
+                                                            progress.ActiveMode = foundMode;
                                                             progress.ActiveStepId = -1;
                                                         }
-                                                    });
-                                                })
-                                            ).ToList();
+                                                    }
+                                                });
+                                            }).ToList();
 
             Echo("Animation setup completed.");
         }
