@@ -63,11 +63,11 @@ namespace UnHingedIndustries.uhiANIM {
 
         static IMechanicalBlockWrapper Wrap(IMyMechanicalConnectionBlock mechanicalBlock) {
             if (mechanicalBlock is IMyMotorStator) {
-                return new MotorWrapper((IMyMotorStator)mechanicalBlock);
+                return new MotorWrapper((IMyMotorStator) mechanicalBlock);
             }
 
             if (mechanicalBlock is IMyPistonBase) {
-                return new PistonWrapper((IMyPistonBase)mechanicalBlock);
+                return new PistonWrapper((IMyPistonBase) mechanicalBlock);
             }
 
             return new UnsupportedWrapper();
@@ -90,7 +90,7 @@ namespace UnHingedIndustries.uhiANIM {
 
             public string Name => _delegate.CustomName;
 
-            public float Value => (float)((_delegate.Angle * 180) / Math.PI);
+            public float Value => (float) ((_delegate.Angle * 180) / Math.PI);
 
             public float Velocity {
                 get { return _delegate.TargetVelocityRPM; }
@@ -153,6 +153,7 @@ namespace UnHingedIndustries.uhiANIM {
         class Animation {
             public readonly Dictionary<String, AnimationSegment> SegmentNamesToSegments;
             public readonly IMyTextSurface AnimationInfoSurface;
+            public readonly short ControllerDeadzonePercentage;
 
             public Animation(IMyProgrammableBlock thisProgrammableBlock, IMyGridTerminalSystem gridTerminalSystem) {
                 var deserializedValue = new MyIni();
@@ -173,6 +174,9 @@ namespace UnHingedIndustries.uhiANIM {
                 if (infoSurfaceBlock != null && infoSurfaceBlock is IMyTextSurface) {
                     AnimationInfoSurface = infoSurfaceBlock as IMyTextSurface;
                 }
+
+                var controllerDeadzonePercentage = deserializedValue.Get("animation", "controllerDeadzone").ToInt16(10);
+                ControllerDeadzonePercentage = controllerDeadzonePercentage;
 
                 SegmentNamesToSegments
                     = animationDefiningBlocks.Concat(Enumerable.Repeat(thisProgrammableBlock, 1))
@@ -517,27 +521,53 @@ namespace UnHingedIndustries.uhiANIM {
             public int ActiveStepId = -1;
         }
 
-        delegate bool ShouldTrigger(string argument, Vector3 moveIndicator);
+        class ControllerInput {
+            readonly IMyShipController _controller;
+            readonly short _deadzonePercentage;
 
-        delegate void EvaluateTrigger(string argument, Vector3 moveIndicator);
+            public ControllerInput(IMyShipController controller, short deadzonePercentage) {
+                _controller = controller;
+                _deadzonePercentage = deadzonePercentage;
+            }
 
-        static ShouldTrigger TranslateTrigger(string trigger) {
+            public bool Forward => InputActive(_controller.MoveIndicator.Z, -1);
+            public bool Backward => InputActive(_controller.MoveIndicator.Z, 1);
+            public bool Left => InputActive(_controller.MoveIndicator.X, -1);
+            public bool Right => InputActive(_controller.MoveIndicator.X, 1);
+            public bool Up => InputActive(_controller.MoveIndicator.Y, 1);
+            public bool Down => InputActive(_controller.MoveIndicator.Y, -1);
+
+            bool InputActive(float indicatorValue, float maximum) {
+                if (indicatorValue == 0 || (indicatorValue < 0 && maximum > 0) || (indicatorValue > 0 && maximum < 0)) {
+                    return false;
+                }
+                else {
+                    return Math.Abs(indicatorValue) >= (Math.Abs(maximum) * _deadzonePercentage) / 100;
+                }
+            }
+        }
+
+        delegate bool ShouldTrigger(string argument, ControllerInput input);
+
+        delegate void EvaluateTrigger(string argument, ControllerInput input);
+
+        ShouldTrigger TranslateTrigger(string trigger) {
             if (trigger.StartsWith("ARGUMENT_")) {
                 return (argument, moveIndicator) => argument == trigger.Remove(0, 9);
             }
 
             switch (trigger) {
-                case "NONE": return (argument, moveIndicator) => false;
-                case "CONTROLLER_NO_INPUT": return (argument, moveIndicator) => moveIndicator.X == 0 && moveIndicator.Y == 0 && moveIndicator.Z == 0;
-                case "CONTROLLER_FORWARD": return (argument, moveIndicator) => moveIndicator.Z < 0;
-                case "CONTROLLER_BACKWARD": return (argument, moveIndicator) => moveIndicator.Z > 0;
-                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, moveIndicator) => moveIndicator.Z == 0;
-                case "CONTROLLER_LEFT": return (argument, moveIndicator) => moveIndicator.X < 0;
-                case "CONTROLLER_RIGHT": return (argument, moveIndicator) => moveIndicator.X > 0;
-                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, moveIndicator) => moveIndicator.X == 0;
-                case "CONTROLLER_UP": return (argument, moveIndicator) => moveIndicator.Y > 0;
-                case "CONTROLLER_DOWN": return (argument, moveIndicator) => moveIndicator.Y < 0;
-                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, moveIndicator) => moveIndicator.Y == 0;
+                case "NONE": return (argument, input) => false;
+                case "CONTROLLER_NO_INPUT": return (argument, input) => !input.Forward && !input.Backward && !input.Left && !input.Right && !input.Up && !input.Down;
+                case "CONTROLLER_FORWARD": return (argument, input) => input.Forward;
+                case "CONTROLLER_BACKWARD": return (argument, input) => input.Backward;
+                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => !input.Forward && !input.Backward;
+                case "CONTROLLER_LEFT": return (argument, input) => input.Left;
+                case "CONTROLLER_RIGHT": return (argument, input) => input.Right;
+                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, input) => !input.Left && !input.Right;
+                case "CONTROLLER_UP": return (argument, input) => input.Up;
+                case "CONTROLLER_DOWN": return (argument, input) => input.Down;
+                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, input) => !input.Up && !input.Down;
                 default: throw new Exception("unknown trigger: " + trigger);
             }
         }
@@ -558,9 +588,9 @@ namespace UnHingedIndustries.uhiANIM {
                                                     var triggers = mode.Triggers
                                                                        .Select(TranslateTrigger);
 
-                                                    return new EvaluateTrigger((argument, moveIndicator) => {
+                                                    return new EvaluateTrigger((argument, input) => {
                                                         if (progress.ActiveMode != mode
-                                                            && triggers.All(trigger => trigger(argument, moveIndicator))) {
+                                                            && triggers.All(trigger => trigger(argument, input))) {
                                                             progress.ActiveMode = mode;
                                                             progress.ActiveStepId = -1;
                                                         }
@@ -755,9 +785,10 @@ namespace UnHingedIndustries.uhiANIM {
             }
 
             var controller = GetController();
+            var input = new ControllerInput(controller, _animation.ControllerDeadzonePercentage);
 
             // Change animation modes
-            _triggerEvaluations.ForEach(triggerEvaluation => triggerEvaluation(argument, controller.MoveIndicator));
+            _triggerEvaluations.ForEach(triggerEvaluation => triggerEvaluation(argument, input));
 
             if (_segmentsProgress.Count == 0) {
                 screenTextBuilder.Append("No animation segments are configured.");
