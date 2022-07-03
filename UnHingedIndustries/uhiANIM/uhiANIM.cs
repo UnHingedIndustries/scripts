@@ -9,7 +9,7 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.7";
+        const string ScriptVersion = "2.0.8";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -152,6 +152,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         class Animation {
             public readonly Dictionary<String, AnimationSegment> SegmentNamesToSegments;
+            public readonly IMyTextSurface AnimationInfoSurface;
 
             public Animation(IMyProgrammableBlock thisProgrammableBlock, IMyGridTerminalSystem gridTerminalSystem) {
                 var deserializedValue = new MyIni();
@@ -167,6 +168,11 @@ namespace UnHingedIndustries.uhiANIM {
                                                                        animationDefiningBlockName
                                                                    )
                                                                );
+                var infoSurfaceName = deserializedValue.Get("animation", "infoSurface").ToString();
+                var infoSurfaceBlock = gridTerminalSystem.GetBlockWithName(infoSurfaceName);
+                if (infoSurfaceBlock != null && infoSurfaceBlock is IMyTextSurface) {
+                    AnimationInfoSurface = infoSurfaceBlock as IMyTextSurface;
+                }
 
                 SegmentNamesToSegments
                     = animationDefiningBlocks.Concat(Enumerable.Repeat(thisProgrammableBlock, 1))
@@ -699,6 +705,12 @@ namespace UnHingedIndustries.uhiANIM {
 
         AnimationModeRecorder _animationModeRecorder;
 
+        IMyTextSurface GetInfoSurface() {
+            return _animation.AnimationInfoSurface != null
+                ? _animation.AnimationInfoSurface
+                : Me.GetSurface(0);
+        }
+
         public void Main(string argument, UpdateType updateSource) {
             var screenTextBuilder = new StringBuilder();
             screenTextBuilder.Append("UnHinged Industries ANIM System\nVersion " + ScriptVersion + "\n\n");
@@ -727,7 +739,7 @@ namespace UnHingedIndustries.uhiANIM {
             if (_animationModeRecorder != null) {
                 screenTextBuilder.Append("Recording steps for:\n Stage: " + _animationModeRecorder.StageName + "\n Mode: " + _animationModeRecorder.ModeName + '\n');
                 screenTextBuilder.Append(" Current recorded steps count: " + _animationModeRecorder.RecordedSteps.Count);
-                Me.GetSurface(0).WriteText(screenTextBuilder.ToString());
+                GetInfoSurface().WriteText(screenTextBuilder.ToString());
                 switch (argument) {
                     case "RECORD_STEPS":
                         _animationModeRecorder.RecordSteps();
@@ -791,7 +803,7 @@ namespace UnHingedIndustries.uhiANIM {
                 }
             }
 
-            Me.GetSurface(0).WriteText(screenTextBuilder.ToString());
+            GetInfoSurface().WriteText(screenTextBuilder.ToString());
         }
     }
 }
