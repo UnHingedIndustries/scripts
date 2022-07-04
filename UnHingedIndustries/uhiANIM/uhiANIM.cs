@@ -8,7 +8,7 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.11";
+        const string ScriptVersion = "2.0.12";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -269,6 +269,13 @@ namespace UnHingedIndustries.uhiANIM {
                     );
                 }
 
+                if (stepType == AnimationStepType.Shift) {
+                    return new ShiftAnimationStep(
+                        serializedStep,
+                        gridTerminalSystem
+                    );
+                }
+
                 if (stepType == AnimationStepType.Toggle) {
                     return new ToggleAnimationStep(
                         serializedStep,
@@ -330,8 +337,8 @@ namespace UnHingedIndustries.uhiANIM {
         * Describes a single step of segment's animation mode, e.g. raising legs.
         */
         interface IAnimationStep {
-            bool IsCompleted();
-            void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress);
+            bool IsCompleted(string argument, ControllerInput input);
+            void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input);
         }
 
         class ToggleAnimationStep : IAnimationStep {
@@ -349,11 +356,11 @@ namespace UnHingedIndustries.uhiANIM {
                 _enable = "true".Equals(stepParts[3], StringComparison.OrdinalIgnoreCase);
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 _components.ForEach(component => component.Enabled = _enable);
             }
         }
@@ -375,7 +382,7 @@ namespace UnHingedIndustries.uhiANIM {
                 _continuityType = Utils.GetEnumFromString<AnimationStepContinuityType>(stepParts[4]);
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 if (_continuityType == AnimationStepContinuityType.Wait) {
                     return _setToLock
                         ? _components.Any(component => component.LockMode == LandingGearMode.Locked)
@@ -385,7 +392,7 @@ namespace UnHingedIndustries.uhiANIM {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 _components.ForEach(component => {
                     component.Enabled = true;
                     component.AutoLock = _setToLock;
@@ -410,11 +417,11 @@ namespace UnHingedIndustries.uhiANIM {
                 _modeName = stepParts[2];
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 if (_segment == null) {
                     _segment = segmentsProgress.Keys.FirstOrDefault(it => it.Name == _segmentName);
                 }
@@ -455,7 +462,7 @@ namespace UnHingedIndustries.uhiANIM {
                 _continuityType = stepParts[6].Length != 0 ? Utils.GetEnumFromString<AnimationStepContinuityType>(stepParts[6]) : previousMoveStep._continuityType;
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 if (_continuityType == AnimationStepContinuityType.Wait) {
                     foreach (var component in _components) {
                         var componentCurrentValue = component.Value;
@@ -468,7 +475,7 @@ namespace UnHingedIndustries.uhiANIM {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 foreach (var component in _components) {
                     var currentValue = component.Value;
                     if (currentValue < _targetValue) {
@@ -481,6 +488,55 @@ namespace UnHingedIndustries.uhiANIM {
                         component.UpperLimit = currentValue;
                         component.Velocity = -Math.Abs(_velocity);
                     }
+                }
+            }
+        }
+
+        class ShiftAnimationStep : IAnimationStep {
+            readonly List<IMechanicalBlockWrapper> _components;
+            readonly ShouldTrigger _trigger;
+            readonly float _minimumValue;
+            readonly float _maximumValue;
+            readonly float _velocity;
+            readonly bool _velocityDependsOnInput; // TODO: implement
+
+            public ShiftAnimationStep(string serializedStep, IMyGridTerminalSystem gridTerminalSystem) {
+                var stepParts = Utils.GetStepParts(serializedStep, 8);
+
+                _components = Utils.FindBlocks<IMyMechanicalConnectionBlock>(
+                    gridTerminalSystem,
+                    Utils.GetEnumFromString<ComponentSearchType>(stepParts[1]),
+                    stepParts[2]
+                ).Select(Wrap).ToList();
+                _trigger = TranslateTrigger(stepParts[3]);
+                _minimumValue = float.Parse(stepParts[4]);
+                _maximumValue = float.Parse(stepParts[5]);
+                _velocity = float.Parse(stepParts[6]);
+                _velocityDependsOnInput = bool.Parse(stepParts[7]);
+            }
+
+            public bool IsCompleted(string argument, ControllerInput input) {
+                var isCompleted = _trigger(argument, input);
+                if (isCompleted) {
+                    _components.ForEach(component => {
+                        var currentValue = component.Value;
+                        component.UpperLimit = currentValue;
+                        component.LowerLimit = currentValue;
+                        component.Velocity = 0;
+                    });
+                }
+
+                return isCompleted;
+            }
+
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
+                if (_velocity == 0) return;
+                if (_trigger(argument, input)) {
+                    _components.ForEach(component => {
+                        component.UpperLimit = _maximumValue;
+                        component.LowerLimit = _minimumValue;
+                        component.Velocity = _velocity;
+                    });
                 }
             }
         }
@@ -498,6 +554,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         enum AnimationStepType {
             Move,
+            Shift,
             Lock,
             Toggle,
             Trigger
@@ -558,7 +615,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         delegate void EvaluateTrigger(string argument, ControllerInput input);
 
-        ShouldTrigger TranslateTrigger(string trigger) {
+        static ShouldTrigger TranslateTrigger(string trigger) {
             if (trigger.StartsWith("ARGUMENT_")) {
                 return (argument, moveIndicator) => argument == trigger.Remove(0, 9);
             }
@@ -832,7 +889,7 @@ namespace UnHingedIndustries.uhiANIM {
                         var previousStep = mode.Steps[progress.ActiveStepId];
 
                         // wait for previous step to finish
-                        if (!previousStep.IsCompleted()) {
+                        if (!previousStep.IsCompleted(argument, input)) {
                             continue;
                         }
                     }
@@ -855,7 +912,7 @@ namespace UnHingedIndustries.uhiANIM {
                     screenTextBuilder.Append(" > " + segment.Name + "." + mode.Name + "." + progress.ActiveStepId + '\n');
                     var activeStep = mode.Steps[progress.ActiveStepId];
 
-                    if (doTrigger) activeStep.Trigger(_segmentsProgress);
+                    if (doTrigger) activeStep.Trigger(_segmentsProgress, argument, input);
                 }
             }
 
