@@ -8,7 +8,7 @@ using VRage.Game.ModAPI.Ingame.Utilities;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.10";
+        const string ScriptVersion = "2.0.11";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -833,7 +833,7 @@ namespace UnHingedIndustries.uhiANIM {
 
                         // wait for previous step to finish
                         if (!previousStep.IsCompleted()) {
-                            return;
+                            continue;
                         }
                     }
 
