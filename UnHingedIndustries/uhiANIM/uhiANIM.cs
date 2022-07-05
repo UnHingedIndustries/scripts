@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI.Interfaces;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game.ModAPI.Ingame.Utilities;
+using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
@@ -151,6 +154,10 @@ namespace UnHingedIndustries.uhiANIM {
             public readonly Dictionary<String, AnimationSegment> SegmentNamesToSegments;
             public readonly IMyTextSurface AnimationInfoSurface;
             public readonly short ControllerDeadzonePercentage;
+            public readonly bool AutomaticallyDetermineInputSensitivity;
+            public Vector3 MoveIndicatorSensitivity;
+            public Vector2 RotationSensitivity;
+            public float RollSensitivity;
 
             public Animation(IMyProgrammableBlock thisProgrammableBlock, IMyGridTerminalSystem gridTerminalSystem) {
                 var deserializedValue = new MyIni();
@@ -172,8 +179,18 @@ namespace UnHingedIndustries.uhiANIM {
                     AnimationInfoSurface = infoSurfaceBlock as IMyTextSurface;
                 }
 
-                var controllerDeadzonePercentage = deserializedValue.Get("animation", "controllerDeadzone").ToInt16(10);
-                ControllerDeadzonePercentage = controllerDeadzonePercentage;
+                ControllerDeadzonePercentage = deserializedValue.Get("animation", "controllerDeadzone").ToInt16(10);
+                AutomaticallyDetermineInputSensitivity = deserializedValue.Get("animation", "autoSensitivity").ToBoolean();
+                MoveIndicatorSensitivity = new Vector3(
+                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.X").ToDecimal(1M)),
+                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.Y").ToDecimal(1M)),
+                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.Z").ToDecimal(1M))
+                );
+                RotationSensitivity = new Vector2(
+                    Math.Abs((float) deserializedValue.Get("animation", "rotationSensitivity.X").ToDecimal(9M)),
+                    Math.Abs((float) deserializedValue.Get("animation", "rotationSensitivity.Y").ToDecimal(9M))
+                );
+                RollSensitivity = Math.Abs((float) deserializedValue.Get("animation", "rollSensitivity").ToDecimal(1M));
 
                 SegmentNamesToSegments
                     = animationDefiningBlocks.Concat(Enumerable.Repeat(thisProgrammableBlock, 1))
@@ -498,7 +515,7 @@ namespace UnHingedIndustries.uhiANIM {
             readonly float _minimumValue;
             readonly float _maximumValue;
             readonly float _velocity;
-            readonly bool _velocityDependsOnInput; // TODO: implement
+            readonly bool _velocityDependsOnInput;
 
             public ShiftAnimationStep(string serializedStep, IMyGridTerminalSystem gridTerminalSystem) {
                 var stepParts = Utils.GetStepParts(serializedStep, 8);
@@ -516,7 +533,7 @@ namespace UnHingedIndustries.uhiANIM {
             }
 
             public bool IsCompleted(string argument, ControllerInput input) {
-                var isCompleted = _trigger(argument, input);
+                var isCompleted = _trigger(argument, input) == 0f;
                 if (isCompleted) {
                     _components.ForEach(component => {
                         var currentValue = component.Value;
@@ -525,17 +542,21 @@ namespace UnHingedIndustries.uhiANIM {
                         component.Velocity = 0;
                     });
                 }
+                else {
+                    Trigger(null, argument, input);
+                }
 
                 return isCompleted;
             }
 
             public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 if (_velocity == 0) return;
-                if (_trigger(argument, input)) {
+                var triggerValue = _trigger(argument, input);
+                if (triggerValue != 0) {
                     _components.ForEach(component => {
                         component.UpperLimit = _maximumValue;
                         component.LowerLimit = _minimumValue;
-                        component.Velocity = _velocity;
+                        component.Velocity = _velocityDependsOnInput ? triggerValue * _velocity : _velocity;
                     });
                 }
             }
@@ -580,72 +601,82 @@ namespace UnHingedIndustries.uhiANIM {
             public int ActiveStepId = -1;
         }
 
+        /**
+         * Returns input multipliers for controller inputs, e.g. what percentage of maximum value for given input does the current input represent.
+         */
         class ControllerInput {
+            readonly Animation _animation;
             readonly IMyShipController _controller;
-            readonly short _deadzonePercentage;
 
-            public ControllerInput(IMyShipController controller, short deadzonePercentage) {
+            public ControllerInput(Animation animation, IMyShipController controller) {
+                _animation = animation;
                 _controller = controller;
-                _deadzonePercentage = deadzonePercentage;
             }
 
-            public bool Forward => InputActive(_controller.MoveIndicator.Z, -1);
-            public bool Backward => InputActive(_controller.MoveIndicator.Z, 1);
-            public bool Left => InputActive(_controller.MoveIndicator.X, -1);
-            public bool Right => InputActive(_controller.MoveIndicator.X, 1);
-            public bool Up => InputActive(_controller.MoveIndicator.Y, 1);
-            public bool Down => InputActive(_controller.MoveIndicator.Y, -1);
-            public bool RollClockwise => InputActive(_controller.RollIndicator, 1);
-            public bool RollCounterClockwise => InputActive(_controller.RollIndicator, -1);
-            public bool PitchUp => InputActive(_controller.RotationIndicator.X, -9);
-            public bool PitchDown => InputActive(_controller.RotationIndicator.X, 9);
-            public bool RotateLeft => InputActive(_controller.RotationIndicator.Y, -9);
-            public bool RotateRight => InputActive(_controller.RotationIndicator.Y, 9);
+            public float Forward => InputMultiplier(_controller.MoveIndicator.Z, -_animation.MoveIndicatorSensitivity.Z);
+            public float Backward => InputMultiplier(_controller.MoveIndicator.Z, _animation.MoveIndicatorSensitivity.Z);
+            public float Left => InputMultiplier(_controller.MoveIndicator.X, -_animation.MoveIndicatorSensitivity.X);
+            public float Right => InputMultiplier(_controller.MoveIndicator.X, _animation.MoveIndicatorSensitivity.X);
+            public float Up => InputMultiplier(_controller.MoveIndicator.Y, _animation.MoveIndicatorSensitivity.Y);
+            public float Down => InputMultiplier(_controller.MoveIndicator.Y, -_animation.MoveIndicatorSensitivity.Y);
+            public float RollClockwise => InputMultiplier(_controller.RollIndicator, _animation.RollSensitivity);
+            public float RollCounterClockwise => InputMultiplier(_controller.RollIndicator, -_animation.RollSensitivity);
+            public float PitchUp => InputMultiplier(_controller.RotationIndicator.X, -_animation.RotationSensitivity.X);
+            public float PitchDown => InputMultiplier(_controller.RotationIndicator.X, _animation.RotationSensitivity.X);
+            public float RotateLeft => InputMultiplier(_controller.RotationIndicator.Y, -_animation.RotationSensitivity.Y);
+            public float RotateRight => InputMultiplier(_controller.RotationIndicator.Y, _animation.RotationSensitivity.Y);
 
-            bool InputActive(float indicatorValue, float maximum) {
+            float InputMultiplier(float indicatorValue, float maximum) {
                 if (indicatorValue == 0 || (indicatorValue < 0 && maximum > 0) || (indicatorValue > 0 && maximum < 0)) {
-                    return false;
+                    return 0f;
                 }
 
-                return Math.Abs(indicatorValue) >= (Math.Abs(maximum) * _deadzonePercentage) / 100;
+                var indicatorValueAbs = Math.Abs(indicatorValue);
+                if (Math.Abs(indicatorValueAbs) >= (Math.Abs(maximum) * _animation.ControllerDeadzonePercentage) / 100) {
+                    var result = Math.Abs(indicatorValueAbs / maximum);
+                    return result > 1 ? 1 : result;
+                }
+                else {
+                    return 0f;
+                }
             }
         }
 
-        delegate bool ShouldTrigger(string argument, ControllerInput input);
+        delegate float ShouldTrigger(string argument, ControllerInput input);
 
         delegate void EvaluateTrigger(string argument, ControllerInput input);
 
         static ShouldTrigger TranslateTrigger(string trigger) {
             if (trigger.StartsWith("ARGUMENT_")) {
-                return (argument, moveIndicator) => argument == trigger.Remove(0, 9);
+                return (argument, moveIndicator) => argument == trigger.Remove(0, 9) ? 1f : 0f;
             }
 
             switch (trigger) {
-                case "NONE": return (argument, input) => false;
+                case "NONE": return (argument, input) => 0f;
                 case "CONTROLLER_NO_INPUT":
                     return (argument, input) =>
-                        !input.Forward && !input.Backward && !input.Left && !input.Right && !input.Up && !input.Down
-                        && !input.RollClockwise && !input.RollCounterClockwise
-                        && !input.PitchUp && !input.PitchDown
-                        && !input.RotateLeft && !input.RotateRight;
+                        input.Forward + input.Backward + input.Left + input.Right + input.Up + input.Down
+                        + input.RollClockwise + input.RollCounterClockwise
+                        + input.PitchUp + input.PitchDown
+                        + input.RotateLeft + input.RotateRight;
                 case "CONTROLLER_FORWARD": return (argument, input) => input.Forward;
                 case "CONTROLLER_BACKWARD": return (argument, input) => input.Backward;
-                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => !input.Forward && !input.Backward;
+                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => input.Forward + input.Backward;
                 case "CONTROLLER_LEFT": return (argument, input) => input.Left;
                 case "CONTROLLER_RIGHT": return (argument, input) => input.Right;
-                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, input) => !input.Left && !input.Right;
+                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, input) => input.Left + input.Right;
                 case "CONTROLLER_UP": return (argument, input) => input.Up;
                 case "CONTROLLER_DOWN": return (argument, input) => input.Down;
-                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, input) => !input.Up && !input.Down;
+                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, input) => input.Up + input.Down;
                 case "CONTROLLER_ROLL_CLOCKWISE": return (argument, input) => input.RollClockwise;
                 case "CONTROLLER_ROLL_COUNTERCLOCKWISE": return (argument, input) => input.RollCounterClockwise;
-                case "CONTROLLER_NO_ROLL": return (argument, input) => !input.RollClockwise && !input.RollCounterClockwise;
+                case "CONTROLLER_NO_ROLL": return (argument, input) => input.RollClockwise + input.RollCounterClockwise;
                 case "CONTROLLER_PITCH_UP": return (argument, input) => input.PitchUp;
                 case "CONTROLLER_PITCH_DOWN": return (argument, input) => input.PitchDown;
-                case "CONTROLLER_NO_PITCH": return (argument, input) => !input.PitchUp && !input.PitchDown;
+                case "CONTROLLER_NO_PITCH": return (argument, input) => input.PitchUp + input.PitchDown;
                 case "CONTROLLER_ROTATE_LEFT": return (argument, input) => input.RotateLeft;
                 case "CONTROLLER_ROTATE_RIGHT": return (argument, input) => input.RotateRight;
-                case "CONTROLLER_NO_ROTATION": return (argument, input) => !input.RotateLeft && !input.RotateRight;
+                case "CONTROLLER_NO_ROTATION": return (argument, input) => input.RotateLeft + input.RotateRight;
                 default: throw new Exception("unknown trigger: " + trigger);
             }
         }
@@ -668,7 +699,7 @@ namespace UnHingedIndustries.uhiANIM {
                                                 );
                                                 return new EvaluateTrigger((argument, input) => {
                                                     var foundMode = modesByPriority.FirstOrDefault(mode =>
-                                                        translatedModeTriggers[mode].All(trigger => trigger(argument, input))
+                                                        translatedModeTriggers[mode].All(trigger => trigger(argument, input) != 0f)
                                                     );
                                                     if (foundMode != null) {
                                                         var progress = _segmentsProgress[segment];
@@ -823,6 +854,29 @@ namespace UnHingedIndustries.uhiANIM {
                 : Me.GetSurface(0);
         }
 
+        void AutomaticallyDetermineSensitivity(Animation animation, IMyShipController controller) {
+            animation.MoveIndicatorSensitivity = new Vector3(
+                Math.Max(animation.MoveIndicatorSensitivity.X, Math.Abs(controller.MoveIndicator.X)),
+                Math.Max(animation.MoveIndicatorSensitivity.Y, Math.Abs(controller.MoveIndicator.Y)),
+                Math.Max(animation.MoveIndicatorSensitivity.Z, Math.Abs(controller.MoveIndicator.Z))
+            );
+            animation.RotationSensitivity = new Vector2(
+                Math.Max(animation.RotationSensitivity.X, Math.Abs(controller.RotationIndicator.X)),
+                Math.Max(animation.RotationSensitivity.Y, Math.Abs(controller.RotationIndicator.Y))
+            );
+            animation.RollSensitivity = Math.Max(animation.RollSensitivity, Math.Abs(controller.RollIndicator));
+
+            var deserializedValue = new MyIni();
+            deserializedValue.TryParse(Me.CustomData);
+            deserializedValue.Set("animation", "moveSensitivity.X", animation.MoveIndicatorSensitivity.X.ToString());
+            deserializedValue.Set("animation", "moveSensitivity.Y", animation.MoveIndicatorSensitivity.Y.ToString());
+            deserializedValue.Set("animation", "moveSensitivity.Z", animation.MoveIndicatorSensitivity.Z.ToString());
+            deserializedValue.Set("animation", "rotationSensitivity.X", animation.RotationSensitivity.X.ToString());
+            deserializedValue.Set("animation", "rotationSensitivity.Y", animation.RotationSensitivity.Y.ToString());
+            deserializedValue.Set("animation", "rollSensitivity", animation.RollSensitivity.ToString());
+            Me.CustomData = deserializedValue.ToString();
+        }
+
         public void Main(string argument, UpdateType updateSource) {
             var screenTextBuilder = new StringBuilder();
             screenTextBuilder.Append("UnHinged Industries ANIM System\nVersion " + ScriptVersion + "\n\n");
@@ -867,7 +921,10 @@ namespace UnHingedIndustries.uhiANIM {
             }
 
             var controller = GetController();
-            var input = new ControllerInput(controller, _animation.ControllerDeadzonePercentage);
+            var input = new ControllerInput(_animation, controller);
+            if (_animation.AutomaticallyDetermineInputSensitivity) {
+                AutomaticallyDetermineSensitivity(_animation, controller);
+            }
 
             // Change animation modes
             _triggerEvaluations.ForEach(triggerEvaluation => triggerEvaluation(argument, input));
@@ -890,6 +947,7 @@ namespace UnHingedIndustries.uhiANIM {
 
                         // wait for previous step to finish
                         if (!previousStep.IsCompleted(argument, input)) {
+                            screenTextBuilder.Append(" > " + segment.Name + "." + mode.Name + "." + progress.ActiveStepId + '\n');
                             continue;
                         }
                     }
