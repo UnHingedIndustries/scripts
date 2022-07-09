@@ -11,7 +11,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.12";
+        const string ScriptVersion = "2.0.13";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -655,28 +655,28 @@ namespace UnHingedIndustries.uhiANIM {
                 case "NONE": return (argument, input) => 0f;
                 case "CONTROLLER_NO_INPUT":
                     return (argument, input) =>
-                        input.Forward + input.Backward + input.Left + input.Right + input.Up + input.Down
+                        (input.Forward + input.Backward + input.Left + input.Right + input.Up + input.Down
                         + input.RollClockwise + input.RollCounterClockwise
                         + input.PitchUp + input.PitchDown
-                        + input.RotateLeft + input.RotateRight;
+                        + input.RotateLeft + input.RotateRight) == 0 ? 1 : 0;
                 case "CONTROLLER_FORWARD": return (argument, input) => input.Forward;
                 case "CONTROLLER_BACKWARD": return (argument, input) => input.Backward;
-                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => input.Forward + input.Backward;
+                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => (input.Forward + input.Backward) == 0 ? 1 : 0;
                 case "CONTROLLER_LEFT": return (argument, input) => input.Left;
                 case "CONTROLLER_RIGHT": return (argument, input) => input.Right;
-                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, input) => input.Left + input.Right;
+                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, input) => (input.Left + input.Right) == 0 ? 1 : 0;
                 case "CONTROLLER_UP": return (argument, input) => input.Up;
                 case "CONTROLLER_DOWN": return (argument, input) => input.Down;
-                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, input) => input.Up + input.Down;
+                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, input) => (input.Up + input.Down) == 0 ? 1 : 0;
                 case "CONTROLLER_ROLL_CLOCKWISE": return (argument, input) => input.RollClockwise;
                 case "CONTROLLER_ROLL_COUNTERCLOCKWISE": return (argument, input) => input.RollCounterClockwise;
-                case "CONTROLLER_NO_ROLL": return (argument, input) => input.RollClockwise + input.RollCounterClockwise;
+                case "CONTROLLER_NO_ROLL": return (argument, input) => (input.RollClockwise + input.RollCounterClockwise) == 0 ? 1 : 0;
                 case "CONTROLLER_PITCH_UP": return (argument, input) => input.PitchUp;
                 case "CONTROLLER_PITCH_DOWN": return (argument, input) => input.PitchDown;
-                case "CONTROLLER_NO_PITCH": return (argument, input) => input.PitchUp + input.PitchDown;
+                case "CONTROLLER_NO_PITCH": return (argument, input) => (input.PitchUp + input.PitchDown) == 0 ? 1 : 0;
                 case "CONTROLLER_ROTATE_LEFT": return (argument, input) => input.RotateLeft;
                 case "CONTROLLER_ROTATE_RIGHT": return (argument, input) => input.RotateRight;
-                case "CONTROLLER_NO_ROTATION": return (argument, input) => input.RotateLeft + input.RotateRight;
+                case "CONTROLLER_NO_ROTATION": return (argument, input) => (input.RotateLeft + input.RotateRight) == 0 ? 1 : 0;
                 default: throw new Exception("unknown trigger: " + trigger);
             }
         }
