@@ -11,7 +11,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.13";
+        const string ScriptVersion = "2.0.14";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -686,6 +686,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         void SetupAnimation() {
             Echo("Setting up animation...");
+            _foundController = null;
             _animation = new Animation(Me, GridTerminalSystem);
 
             _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
