@@ -11,7 +11,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.16";
+        const string ScriptVersion = "2.0.17";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 

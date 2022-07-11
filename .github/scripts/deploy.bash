@@ -2,6 +2,32 @@
 
 set -e
 
+function generateSteamWorkshopChangelog() {
+  changelogFile="${1}"
+  echo 'Changes:'
+  echo '[list]'
+  
+  while IFS='' read -r line || [ "${line}" ]; do
+    [ -z "${line}" ] && continue
+    echo "[*] ${line}"
+  done < "${changelogFile}"
+  
+  echo '[/list]'
+}
+
+function generateModIoChangelog() {
+  changelogFile="${1}"
+  echo -n 'Changes:<br>'
+  echo -n '<ul>'
+  
+  while IFS='' read -r line || [ "${line}" ]; do
+    [ -z "${line}" ] && continue
+    echo -n "<li>${line}</li>"
+  done < "${changelogFile}"
+  
+  echo -n '</ul>'
+}
+
 steamAppId='244850'
 modIoAppId='264'
 
@@ -20,6 +46,7 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
   oldThumbnailFile="${workshopItemPath}/thumb.png"
   newThumbnailFile="${repositoryScriptPath}/thumb.png"
   newScriptTitle="[UHI] ${scriptName} ${scriptVersion}"
+  changelogFile="${repositoryScriptPath}/changelog.txt"
 
   # Take only the part of the script that is needed in Programmable Block
   grep '        ' "${repositoryScriptFile}" | cut -c 9- > "${newScriptFile}" 
@@ -38,6 +65,7 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
       cp "${newThumbnailFile}" "${oldThumbnailFile}"
 
       echo "Generating VDF file"
+      steamWorkshopChangelog="$(generateSteamWorkshopChangelog "${changelogFile}")"
       vdfFilePath="${repositoryScriptPath}/upload_item.vdf"
       cat >> "${vdfFilePath}" <<EOF
 "workshopitem"
@@ -47,7 +75,7 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
  "contentfolder" "${workshopItemPath}"
  "previewfile" "${repositoryScriptPath}/thumb.png"
  "title" "${newScriptTitle}"
- "changenote" "Deploy version ${scriptVersion} built from [url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}]${GITHUB_SHA}[/url]"
+ "changenote" "Deploy version ${scriptVersion} built from [url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}]${GITHUB_SHA}[/url]\n\n${steamWorkshopChangelog}"
 }
 EOF
       echo "VDF file generated $(cat "${vdfFilePath}")"
@@ -61,13 +89,14 @@ EOF
       zip -r -j "${compressedFilePath}" "${workshopItemPath}"
 
       echo "Starting upload to mod.io"
+      modIoChangelog="$(generateModIoChangelog "${changelogFile}")"
       curl -X POST "https://api.mod.io/v1/games/${modIoAppId}/mods/${modIoFileId}/files" \
         -H "Authorization: Bearer ${MOD_IO_ACCESS_TOKEN}" \
         -H 'Content-Type: multipart/form-data' \
         -H 'Accept: application/json' \
         -F "filedata=@${compressedFilePath}" \
         -F "version=${scriptVersion}" \
-        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}</a>"
+        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}</a>${modIoChangelog}"
 
       echo "Upload complete, changing script name in mod.io to ${newScriptTitle}"
       curl -X PUT "https://api.mod.io/v1/games/${modIoAppId}/mods/${modIoFileId}" \
