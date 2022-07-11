@@ -1,15 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SpaceEngineers.Game.ModAPI.Ingame;
 using System.Text;
-using VRageMath;
+using Sandbox.Game.Entities;
 using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI.Interfaces;
+using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game.ModAPI.Ingame.Utilities;
+using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.7";
+        const string ScriptVersion = "2.0.14";
         const string WorkshopItemId = "2825279640";
 
         public static class Utils {
@@ -18,9 +20,8 @@ namespace UnHingedIndustries.uhiANIM {
                 if (stepParts.Length != requiredCount) {
                     throw new ArgumentException("step requires " + requiredCount + " arguments, received " + stepParts.Length + " in " + serializedStep);
                 }
-                else {
-                    return stepParts;
-                }
+
+                return stepParts;
             }
 
             public static T GetEnumFromString<T>(string value) where T : struct {
@@ -28,9 +29,8 @@ namespace UnHingedIndustries.uhiANIM {
                 if (Enum.TryParse(value, true, out result)) {
                     return result;
                 }
-                else {
-                    throw new ArgumentException("Invalid value '" + value + "' for enum " + nameof(T));
-                }
+
+                throw new ArgumentException("Invalid value '" + value + "' for enum " + nameof(T));
             }
 
             public static List<T> FindBlocks<T>(IMyGridTerminalSystem gridTerminalSystem, ComponentSearchType searchType, string searchString) where T : class, IMyTerminalBlock {
@@ -63,11 +63,11 @@ namespace UnHingedIndustries.uhiANIM {
 
         static IMechanicalBlockWrapper Wrap(IMyMechanicalConnectionBlock mechanicalBlock) {
             if (mechanicalBlock is IMyMotorStator) {
-                return new MotorWrapper((IMyMotorStator)mechanicalBlock);
+                return new MotorWrapper((IMyMotorStator) mechanicalBlock);
             }
 
             if (mechanicalBlock is IMyPistonBase) {
-                return new PistonWrapper((IMyPistonBase)mechanicalBlock);
+                return new PistonWrapper((IMyPistonBase) mechanicalBlock);
             }
 
             return new UnsupportedWrapper();
@@ -90,7 +90,7 @@ namespace UnHingedIndustries.uhiANIM {
 
             public string Name => _delegate.CustomName;
 
-            public float Value => (float)((_delegate.Angle * 180) / Math.PI);
+            public float Value => (float) ((_delegate.Angle * 180) / Math.PI);
 
             public float Velocity {
                 get { return _delegate.TargetVelocityRPM; }
@@ -152,6 +152,12 @@ namespace UnHingedIndustries.uhiANIM {
 
         class Animation {
             public readonly Dictionary<String, AnimationSegment> SegmentNamesToSegments;
+            public readonly IMyTextSurface AnimationInfoSurface;
+            public readonly short ControllerDeadzonePercentage;
+            public readonly bool AutomaticallyDetermineInputSensitivity;
+            public Vector3 MoveIndicatorSensitivity;
+            public Vector2 RotationSensitivity;
+            public float RollSensitivity;
 
             public Animation(IMyProgrammableBlock thisProgrammableBlock, IMyGridTerminalSystem gridTerminalSystem) {
                 var deserializedValue = new MyIni();
@@ -167,6 +173,24 @@ namespace UnHingedIndustries.uhiANIM {
                                                                        animationDefiningBlockName
                                                                    )
                                                                );
+                var infoSurfaceName = deserializedValue.Get("animation", "infoSurface").ToString();
+                var infoSurfaceBlock = gridTerminalSystem.GetBlockWithName(infoSurfaceName);
+                if (infoSurfaceBlock != null && infoSurfaceBlock is IMyTextSurface) {
+                    AnimationInfoSurface = infoSurfaceBlock as IMyTextSurface;
+                }
+
+                ControllerDeadzonePercentage = deserializedValue.Get("animation", "controllerDeadzone").ToInt16(10);
+                AutomaticallyDetermineInputSensitivity = deserializedValue.Get("animation", "autoSensitivity").ToBoolean();
+                MoveIndicatorSensitivity = new Vector3(
+                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.X").ToDecimal(1M)),
+                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.Y").ToDecimal(1M)),
+                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.Z").ToDecimal(1M))
+                );
+                RotationSensitivity = new Vector2(
+                    Math.Abs((float) deserializedValue.Get("animation", "rotationSensitivity.X").ToDecimal(9M)),
+                    Math.Abs((float) deserializedValue.Get("animation", "rotationSensitivity.Y").ToDecimal(9M))
+                );
+                RollSensitivity = Math.Abs((float) deserializedValue.Get("animation", "rollSensitivity").ToDecimal(1M));
 
                 SegmentNamesToSegments
                     = animationDefiningBlocks.Concat(Enumerable.Repeat(thisProgrammableBlock, 1))
@@ -213,12 +237,14 @@ namespace UnHingedIndustries.uhiANIM {
                                                 .Where(trigger => trigger.Length != 0)
                                                 .ToList();
                 var repeat = deserializedValue.Get(sectionName, "repeat").ToBoolean();
+                var priority = deserializedValue.Get(sectionName, "priority").ToInt32(0);
                 var steps = CreateSteps(deserializedValue.Get(sectionName, "steps"), gridTerminalSystem);
 
                 return new AnimationSegmentMode(
                     modeName,
                     triggers,
                     repeat,
+                    priority,
                     steps
                 );
             }
@@ -260,6 +286,13 @@ namespace UnHingedIndustries.uhiANIM {
                     );
                 }
 
+                if (stepType == AnimationStepType.Shift) {
+                    return new ShiftAnimationStep(
+                        serializedStep,
+                        gridTerminalSystem
+                    );
+                }
+
                 if (stepType == AnimationStepType.Toggle) {
                     return new ToggleAnimationStep(
                         serializedStep,
@@ -290,8 +323,8 @@ namespace UnHingedIndustries.uhiANIM {
             public readonly Dictionary<String, AnimationSegmentMode> ModeNameToMode;
 
             public AnimationSegment(string name, Dictionary<string, AnimationSegmentMode> modeNameToMode) {
-                this.Name = name;
-                this.ModeNameToMode = modeNameToMode;
+                Name = name;
+                ModeNameToMode = modeNameToMode;
             }
         }
 
@@ -304,13 +337,16 @@ namespace UnHingedIndustries.uhiANIM {
 
             public readonly bool Repeat;
 
+            public readonly int Priority;
+
             public readonly List<IAnimationStep> Steps;
 
-            public AnimationSegmentMode(string name, List<string> triggers, bool repeat, List<IAnimationStep> steps) {
-                this.Name = name;
-                this.Triggers = triggers;
-                this.Repeat = repeat;
-                this.Steps = steps;
+            public AnimationSegmentMode(string name, List<string> triggers, bool repeat, int priority, List<IAnimationStep> steps) {
+                Name = name;
+                Triggers = triggers;
+                Repeat = repeat;
+                Priority = priority;
+                Steps = steps;
             }
         }
 
@@ -318,8 +354,8 @@ namespace UnHingedIndustries.uhiANIM {
         * Describes a single step of segment's animation mode, e.g. raising legs.
         */
         interface IAnimationStep {
-            bool IsCompleted();
-            void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress);
+            bool IsCompleted(string argument, ControllerInput input);
+            void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input);
         }
 
         class ToggleAnimationStep : IAnimationStep {
@@ -337,11 +373,11 @@ namespace UnHingedIndustries.uhiANIM {
                 _enable = "true".Equals(stepParts[3], StringComparison.OrdinalIgnoreCase);
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 _components.ForEach(component => component.Enabled = _enable);
             }
         }
@@ -363,7 +399,7 @@ namespace UnHingedIndustries.uhiANIM {
                 _continuityType = Utils.GetEnumFromString<AnimationStepContinuityType>(stepParts[4]);
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 if (_continuityType == AnimationStepContinuityType.Wait) {
                     return _setToLock
                         ? _components.Any(component => component.LockMode == LandingGearMode.Locked)
@@ -373,7 +409,7 @@ namespace UnHingedIndustries.uhiANIM {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 _components.ForEach(component => {
                     component.Enabled = true;
                     component.AutoLock = _setToLock;
@@ -398,11 +434,11 @@ namespace UnHingedIndustries.uhiANIM {
                 _modeName = stepParts[2];
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 if (_segment == null) {
                     _segment = segmentsProgress.Keys.FirstOrDefault(it => it.Name == _segmentName);
                 }
@@ -443,7 +479,7 @@ namespace UnHingedIndustries.uhiANIM {
                 _continuityType = stepParts[6].Length != 0 ? Utils.GetEnumFromString<AnimationStepContinuityType>(stepParts[6]) : previousMoveStep._continuityType;
             }
 
-            public bool IsCompleted() {
+            public bool IsCompleted(string argument, ControllerInput input) {
                 if (_continuityType == AnimationStepContinuityType.Wait) {
                     foreach (var component in _components) {
                         var componentCurrentValue = component.Value;
@@ -456,7 +492,7 @@ namespace UnHingedIndustries.uhiANIM {
                 return true;
             }
 
-            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress) {
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
                 foreach (var component in _components) {
                     var currentValue = component.Value;
                     if (currentValue < _targetValue) {
@@ -469,6 +505,59 @@ namespace UnHingedIndustries.uhiANIM {
                         component.UpperLimit = currentValue;
                         component.Velocity = -Math.Abs(_velocity);
                     }
+                }
+            }
+        }
+
+        class ShiftAnimationStep : IAnimationStep {
+            readonly List<IMechanicalBlockWrapper> _components;
+            readonly ShouldTrigger _trigger;
+            readonly float _minimumValue;
+            readonly float _maximumValue;
+            readonly float _velocity;
+            readonly bool _velocityDependsOnInput;
+
+            public ShiftAnimationStep(string serializedStep, IMyGridTerminalSystem gridTerminalSystem) {
+                var stepParts = Utils.GetStepParts(serializedStep, 8);
+
+                _components = Utils.FindBlocks<IMyMechanicalConnectionBlock>(
+                    gridTerminalSystem,
+                    Utils.GetEnumFromString<ComponentSearchType>(stepParts[1]),
+                    stepParts[2]
+                ).Select(Wrap).ToList();
+                _trigger = TranslateTrigger(stepParts[3]);
+                _minimumValue = float.Parse(stepParts[4]);
+                _maximumValue = float.Parse(stepParts[5]);
+                _velocity = float.Parse(stepParts[6]);
+                _velocityDependsOnInput = bool.Parse(stepParts[7]);
+            }
+
+            public bool IsCompleted(string argument, ControllerInput input) {
+                var isCompleted = _trigger(argument, input) == 0f;
+                if (isCompleted) {
+                    _components.ForEach(component => {
+                        var currentValue = component.Value;
+                        component.UpperLimit = currentValue;
+                        component.LowerLimit = currentValue;
+                        component.Velocity = 0;
+                    });
+                }
+                else {
+                    Trigger(null, argument, input);
+                }
+
+                return isCompleted;
+            }
+
+            public void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input) {
+                if (_velocity == 0) return;
+                var triggerValue = _trigger(argument, input);
+                if (triggerValue != 0) {
+                    _components.ForEach(component => {
+                        component.UpperLimit = _maximumValue;
+                        component.LowerLimit = _minimumValue;
+                        component.Velocity = _velocityDependsOnInput ? triggerValue * _velocity : _velocity;
+                    });
                 }
             }
         }
@@ -486,6 +575,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         enum AnimationStepType {
             Move,
+            Shift,
             Lock,
             Toggle,
             Trigger
@@ -511,27 +601,82 @@ namespace UnHingedIndustries.uhiANIM {
             public int ActiveStepId = -1;
         }
 
-        delegate bool ShouldTrigger(string argument, Vector3 moveIndicator);
+        /**
+         * Returns input multipliers for controller inputs, e.g. what percentage of maximum value for given input does the current input represent.
+         */
+        class ControllerInput {
+            readonly Animation _animation;
+            readonly IMyShipController _controller;
 
-        delegate void EvaluateTrigger(string argument, Vector3 moveIndicator);
+            public ControllerInput(Animation animation, IMyShipController controller) {
+                _animation = animation;
+                _controller = controller;
+            }
+
+            public float Forward => InputMultiplier(_controller.MoveIndicator.Z, -_animation.MoveIndicatorSensitivity.Z);
+            public float Backward => InputMultiplier(_controller.MoveIndicator.Z, _animation.MoveIndicatorSensitivity.Z);
+            public float Left => InputMultiplier(_controller.MoveIndicator.X, -_animation.MoveIndicatorSensitivity.X);
+            public float Right => InputMultiplier(_controller.MoveIndicator.X, _animation.MoveIndicatorSensitivity.X);
+            public float Up => InputMultiplier(_controller.MoveIndicator.Y, _animation.MoveIndicatorSensitivity.Y);
+            public float Down => InputMultiplier(_controller.MoveIndicator.Y, -_animation.MoveIndicatorSensitivity.Y);
+            public float RollClockwise => InputMultiplier(_controller.RollIndicator, _animation.RollSensitivity);
+            public float RollCounterClockwise => InputMultiplier(_controller.RollIndicator, -_animation.RollSensitivity);
+            public float PitchUp => InputMultiplier(_controller.RotationIndicator.X, -_animation.RotationSensitivity.X);
+            public float PitchDown => InputMultiplier(_controller.RotationIndicator.X, _animation.RotationSensitivity.X);
+            public float RotateLeft => InputMultiplier(_controller.RotationIndicator.Y, -_animation.RotationSensitivity.Y);
+            public float RotateRight => InputMultiplier(_controller.RotationIndicator.Y, _animation.RotationSensitivity.Y);
+
+            float InputMultiplier(float indicatorValue, float maximum) {
+                if (indicatorValue == 0 || (indicatorValue < 0 && maximum > 0) || (indicatorValue > 0 && maximum < 0)) {
+                    return 0f;
+                }
+
+                var indicatorValueAbs = Math.Abs(indicatorValue);
+                if (Math.Abs(indicatorValueAbs) >= (Math.Abs(maximum) * _animation.ControllerDeadzonePercentage) / 100) {
+                    var result = Math.Abs(indicatorValueAbs / maximum);
+                    return result > 1 ? 1 : result;
+                }
+                else {
+                    return 0f;
+                }
+            }
+        }
+
+        delegate float ShouldTrigger(string argument, ControllerInput input);
+
+        delegate void EvaluateTrigger(string argument, ControllerInput input);
 
         static ShouldTrigger TranslateTrigger(string trigger) {
             if (trigger.StartsWith("ARGUMENT_")) {
-                return (argument, moveIndicator) => argument == trigger.Remove(0, 9);
+                return (argument, moveIndicator) => argument == trigger.Remove(0, 9) ? 1f : 0f;
             }
 
             switch (trigger) {
-                case "NONE": return (argument, moveIndicator) => false;
-                case "CONTROLLER_NO_INPUT": return (argument, moveIndicator) => moveIndicator.X == 0 && moveIndicator.Y == 0 && moveIndicator.Z == 0;
-                case "CONTROLLER_FORWARD": return (argument, moveIndicator) => moveIndicator.Z < 0;
-                case "CONTROLLER_BACKWARD": return (argument, moveIndicator) => moveIndicator.Z > 0;
-                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, moveIndicator) => moveIndicator.Z == 0;
-                case "CONTROLLER_LEFT": return (argument, moveIndicator) => moveIndicator.X < 0;
-                case "CONTROLLER_RIGHT": return (argument, moveIndicator) => moveIndicator.X > 0;
-                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, moveIndicator) => moveIndicator.X == 0;
-                case "CONTROLLER_UP": return (argument, moveIndicator) => moveIndicator.Y > 0;
-                case "CONTROLLER_DOWN": return (argument, moveIndicator) => moveIndicator.Y < 0;
-                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, moveIndicator) => moveIndicator.Y == 0;
+                case "NONE": return (argument, input) => 0f;
+                case "CONTROLLER_NO_INPUT":
+                    return (argument, input) =>
+                        (input.Forward + input.Backward + input.Left + input.Right + input.Up + input.Down
+                        + input.RollClockwise + input.RollCounterClockwise
+                        + input.PitchUp + input.PitchDown
+                        + input.RotateLeft + input.RotateRight) == 0 ? 1 : 0;
+                case "CONTROLLER_FORWARD": return (argument, input) => input.Forward;
+                case "CONTROLLER_BACKWARD": return (argument, input) => input.Backward;
+                case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => (input.Forward + input.Backward) == 0 ? 1 : 0;
+                case "CONTROLLER_LEFT": return (argument, input) => input.Left;
+                case "CONTROLLER_RIGHT": return (argument, input) => input.Right;
+                case "CONTROLLER_NEITHER_LEFT_NOR_RIGHT": return (argument, input) => (input.Left + input.Right) == 0 ? 1 : 0;
+                case "CONTROLLER_UP": return (argument, input) => input.Up;
+                case "CONTROLLER_DOWN": return (argument, input) => input.Down;
+                case "CONTROLLER_NEITHER_UP_NOR_DOWN": return (argument, input) => (input.Up + input.Down) == 0 ? 1 : 0;
+                case "CONTROLLER_ROLL_CLOCKWISE": return (argument, input) => input.RollClockwise;
+                case "CONTROLLER_ROLL_COUNTERCLOCKWISE": return (argument, input) => input.RollCounterClockwise;
+                case "CONTROLLER_NO_ROLL": return (argument, input) => (input.RollClockwise + input.RollCounterClockwise) == 0 ? 1 : 0;
+                case "CONTROLLER_PITCH_UP": return (argument, input) => input.PitchUp;
+                case "CONTROLLER_PITCH_DOWN": return (argument, input) => input.PitchDown;
+                case "CONTROLLER_NO_PITCH": return (argument, input) => (input.PitchUp + input.PitchDown) == 0 ? 1 : 0;
+                case "CONTROLLER_ROTATE_LEFT": return (argument, input) => input.RotateLeft;
+                case "CONTROLLER_ROTATE_RIGHT": return (argument, input) => input.RotateRight;
+                case "CONTROLLER_NO_ROTATION": return (argument, input) => (input.RotateLeft + input.RotateRight) == 0 ? 1 : 0;
                 default: throw new Exception("unknown trigger: " + trigger);
             }
         }
@@ -541,26 +686,31 @@ namespace UnHingedIndustries.uhiANIM {
 
         void SetupAnimation() {
             Echo("Setting up animation...");
+            _foundController = null;
             _animation = new Animation(Me, GridTerminalSystem);
 
             _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
 
             _triggerEvaluations = _animation.SegmentNamesToSegments.Values
-                                            .SelectMany(segment =>
-                                                segment.ModeNameToMode.Values.Select(mode => {
-                                                    var progress = _segmentsProgress[segment];
-                                                    var triggers = mode.Triggers
-                                                                       .Select(TranslateTrigger);
-
-                                                    return new EvaluateTrigger((argument, moveIndicator) => {
-                                                        if (progress.ActiveMode != mode
-                                                            && triggers.All(trigger => trigger(argument, moveIndicator))) {
-                                                            progress.ActiveMode = mode;
+                                            .Select(segment => {
+                                                var modesByPriority = segment.ModeNameToMode.Values.OrderByDescending(mode => mode.Priority).ToList();
+                                                var translatedModeTriggers = modesByPriority.ToDictionary(
+                                                    mode => mode,
+                                                    mode => mode.Triggers.Select(TranslateTrigger).ToList()
+                                                );
+                                                return new EvaluateTrigger((argument, input) => {
+                                                    var foundMode = modesByPriority.FirstOrDefault(mode =>
+                                                        translatedModeTriggers[mode].All(trigger => trigger(argument, input) != 0f)
+                                                    );
+                                                    if (foundMode != null) {
+                                                        var progress = _segmentsProgress[segment];
+                                                        if (progress.ActiveMode != foundMode) {
+                                                            progress.ActiveMode = foundMode;
                                                             progress.ActiveStepId = -1;
                                                         }
-                                                    });
-                                                })
-                                            ).ToList();
+                                                    }
+                                                });
+                                            }).ToList();
 
             Echo("Animation setup completed.");
         }
@@ -699,6 +849,35 @@ namespace UnHingedIndustries.uhiANIM {
 
         AnimationModeRecorder _animationModeRecorder;
 
+        IMyTextSurface GetInfoSurface() {
+            return _animation.AnimationInfoSurface != null
+                ? _animation.AnimationInfoSurface
+                : Me.GetSurface(0);
+        }
+
+        void AutomaticallyDetermineSensitivity(Animation animation, IMyShipController controller) {
+            animation.MoveIndicatorSensitivity = new Vector3(
+                Math.Max(animation.MoveIndicatorSensitivity.X, Math.Abs(controller.MoveIndicator.X)),
+                Math.Max(animation.MoveIndicatorSensitivity.Y, Math.Abs(controller.MoveIndicator.Y)),
+                Math.Max(animation.MoveIndicatorSensitivity.Z, Math.Abs(controller.MoveIndicator.Z))
+            );
+            animation.RotationSensitivity = new Vector2(
+                Math.Max(animation.RotationSensitivity.X, Math.Abs(controller.RotationIndicator.X)),
+                Math.Max(animation.RotationSensitivity.Y, Math.Abs(controller.RotationIndicator.Y))
+            );
+            animation.RollSensitivity = Math.Max(animation.RollSensitivity, Math.Abs(controller.RollIndicator));
+
+            var deserializedValue = new MyIni();
+            deserializedValue.TryParse(Me.CustomData);
+            deserializedValue.Set("animation", "moveSensitivity.X", animation.MoveIndicatorSensitivity.X.ToString());
+            deserializedValue.Set("animation", "moveSensitivity.Y", animation.MoveIndicatorSensitivity.Y.ToString());
+            deserializedValue.Set("animation", "moveSensitivity.Z", animation.MoveIndicatorSensitivity.Z.ToString());
+            deserializedValue.Set("animation", "rotationSensitivity.X", animation.RotationSensitivity.X.ToString());
+            deserializedValue.Set("animation", "rotationSensitivity.Y", animation.RotationSensitivity.Y.ToString());
+            deserializedValue.Set("animation", "rollSensitivity", animation.RollSensitivity.ToString());
+            Me.CustomData = deserializedValue.ToString();
+        }
+
         public void Main(string argument, UpdateType updateSource) {
             var screenTextBuilder = new StringBuilder();
             screenTextBuilder.Append("UnHinged Industries ANIM System\nVersion " + ScriptVersion + "\n\n");
@@ -727,7 +906,7 @@ namespace UnHingedIndustries.uhiANIM {
             if (_animationModeRecorder != null) {
                 screenTextBuilder.Append("Recording steps for:\n Stage: " + _animationModeRecorder.StageName + "\n Mode: " + _animationModeRecorder.ModeName + '\n');
                 screenTextBuilder.Append(" Current recorded steps count: " + _animationModeRecorder.RecordedSteps.Count);
-                Me.GetSurface(0).WriteText(screenTextBuilder.ToString());
+                GetInfoSurface().WriteText(screenTextBuilder.ToString());
                 switch (argument) {
                     case "RECORD_STEPS":
                         _animationModeRecorder.RecordSteps();
@@ -743,9 +922,13 @@ namespace UnHingedIndustries.uhiANIM {
             }
 
             var controller = GetController();
+            var input = new ControllerInput(_animation, controller);
+            if (_animation.AutomaticallyDetermineInputSensitivity) {
+                AutomaticallyDetermineSensitivity(_animation, controller);
+            }
 
             // Change animation modes
-            _triggerEvaluations.ForEach(triggerEvaluation => triggerEvaluation(argument, controller.MoveIndicator));
+            _triggerEvaluations.ForEach(triggerEvaluation => triggerEvaluation(argument, input));
 
             if (_segmentsProgress.Count == 0) {
                 screenTextBuilder.Append("No animation segments are configured.");
@@ -764,8 +947,9 @@ namespace UnHingedIndustries.uhiANIM {
                         var previousStep = mode.Steps[progress.ActiveStepId];
 
                         // wait for previous step to finish
-                        if (!previousStep.IsCompleted()) {
-                            return;
+                        if (!previousStep.IsCompleted(argument, input)) {
+                            screenTextBuilder.Append(" > " + segment.Name + "." + mode.Name + "." + progress.ActiveStepId + '\n');
+                            continue;
                         }
                     }
 
@@ -787,11 +971,11 @@ namespace UnHingedIndustries.uhiANIM {
                     screenTextBuilder.Append(" > " + segment.Name + "." + mode.Name + "." + progress.ActiveStepId + '\n');
                     var activeStep = mode.Steps[progress.ActiveStepId];
 
-                    if (doTrigger) activeStep.Trigger(_segmentsProgress);
+                    if (doTrigger) activeStep.Trigger(_segmentsProgress, argument, input);
                 }
             }
 
-            Me.GetSurface(0).WriteText(screenTextBuilder.ToString());
+            GetInfoSurface().WriteText(screenTextBuilder.ToString());
         }
     }
 }
