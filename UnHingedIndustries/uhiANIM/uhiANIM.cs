@@ -11,8 +11,9 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.14";
+        const string ScriptVersion = "2.0.15";
         const string WorkshopItemId = "2825279640";
+        const string ModIoItemId = "2197324";
 
         public static class Utils {
             public static string[] GetStepParts(string serializedStep, int requiredCount) {

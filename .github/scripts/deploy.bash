@@ -2,14 +2,19 @@
 
 set -e
 
+steamAppId='244850'
+modIoAppId='264'
+
 for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.bash"); do
   readarray -d ';' -t scriptMetadata <<< "${rawScriptMetadata}"
   repositoryScriptFile="${scriptMetadata[0]}"
   repositoryScriptPath="$(dirname "${repositoryScriptFile}")"
   scriptName="$(basename "${repositoryScriptFile}" '.cs')"
-  workshopFileId="${scriptMetadata[1]}"
-  scriptVersion="${scriptMetadata[2]}"
-  workshopItemPath="${HOME}/Steam/steamapps/workshop/content/244850/${workshopFileId}"
+  workshopFileId="${scriptMetadata[2]}"
+  modIoFileId="${scriptMetadata[3]}"
+  scriptVersion="${scriptMetadata[1]}"
+  workshopAppPath="${HOME}/Steam/steamapps/workshop/content/244850"
+  workshopItemPath="${workshopAppPath}/${workshopFileId}"
   oldScriptFile="${workshopItemPath}/Script.cs"
   newScriptFile="${workshopItemPath}/NewScript.cs"
   oldThumbnailFile="${workshopItemPath}/thumb.png"
@@ -36,7 +41,7 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
       cat >> "${vdfFilePath}" <<EOF
 "workshopitem"
 {
- "appid" "244850"
+ "appid" "${steamAppId}"
  "publishedfileid" "${workshopFileId}"
  "contentfolder" "${workshopItemPath}"
  "previewfile" "${repositoryScriptPath}/thumb.png"
@@ -52,5 +57,20 @@ EOF
       echo "Starting upload to Steam Workshop"
       ls -lha "${workshopItemPath}"
       steamcmd +login "${STEAM_USERNAME}" "${STEAM_PASSWORD}" "${steamAuthCode}" +workshop_build_item "${vdfFilePath}" +exit
+
+      echo "Generating ZIP archive for mod.io"
+      compressedFilePath="${workshopItemPath}.zip"
+      zip -r -j "${compressedFilePath}" "${workshopItemPath}"
+
+      echo "Starting upload to mod.io"
+      curl -X POST "https://api.mod.io/v1/games/264/mods/${modIoFileId}/files" \
+        -H "Authorization: Bearer ${MOD_IO_ACCESS_TOKEN}" \
+        -H 'Content-Type: multipart/form-data' \
+        -H 'Accept: application/json' \
+        -F "filedata=@${compressedFilePath}" \
+        -F "version=${scriptVersion}" \
+        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}<\a>"
+
+      echo "Successfully uploaded ${scriptName} ${scriptVersion}!"
   fi
 done

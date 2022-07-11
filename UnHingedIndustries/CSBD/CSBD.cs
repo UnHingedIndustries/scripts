@@ -10,8 +10,9 @@ using VRageMath;
 
 namespace UnHingedIndustries.CSBD {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "1.0.4";
+        const string ScriptVersion = "1.0.5";
         const string WorkshopItemId = "2813105329";
+        const string ModIoItemId = "2197328";
 
         // For immersion purposes only. Set to false if you don't want the booting screen to appear.
         bool _isBooting = true;

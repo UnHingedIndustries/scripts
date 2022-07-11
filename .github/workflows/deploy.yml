@@ -1,4 +1,4 @@
-name: Deploy scripts to Steam Workshop
+name: Deploy scripts
 
 on:
   workflow_run:
@@ -11,6 +11,7 @@ env:
   STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
   STEAM_PASSWORD: ${{ secrets.STEAM_PASSWORD }}
   STEAM_SHARED_SECRET: ${{ secrets.STEAM_SHARED_SECRET }}
+  MOD_IO_ACCESS_TOKEN: ${{ secrets.MOD_IO_ACCESS_TOKEN }}
 
 jobs:
   deploy:
@@ -30,4 +31,4 @@ jobs:
       - name: Download scripts from Steam Workshop
         run: ${GITHUB_WORKSPACE}/.github/scripts/download-workshop-items.bash
       - name: Deploy scripts to Steam Workshop
-        run: ${GITHUB_WORKSPACE}/.github/scripts/deploy-to-workshop.bash
+        run: ${GITHUB_WORKSPACE}/.github/scripts/deploy.bash
