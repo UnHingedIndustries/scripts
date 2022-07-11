@@ -32,5 +32,5 @@ jobs:
         run: ${GITHUB_WORKSPACE}/.github/scripts/login-to-steam.bash
       - name: Download scripts from Steam Workshop
         run: ${GITHUB_WORKSPACE}/.github/scripts/download-workshop-items.bash
-      - name: Deploy scripts to Steam Workshop
+      - name: Deploy scripts
         run: ${GITHUB_WORKSPACE}/.github/scripts/deploy.bash
