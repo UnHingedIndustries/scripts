@@ -19,6 +19,7 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
   newScriptFile="${workshopItemPath}/NewScript.cs"
   oldThumbnailFile="${workshopItemPath}/thumb.png"
   newThumbnailFile="${repositoryScriptPath}/thumb.png"
+  newScriptTitle="[UHI] ${scriptName} ${scriptVersion}"
 
   # Take only the part of the script that is needed in Programmable Block
   grep '        ' "${repositoryScriptFile}" | cut -c 9- > "${newScriptFile}" 
@@ -45,32 +46,36 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
  "publishedfileid" "${workshopFileId}"
  "contentfolder" "${workshopItemPath}"
  "previewfile" "${repositoryScriptPath}/thumb.png"
- "title" "[UHI] ${scriptName} ${scriptVersion}"
+ "title" "${newScriptTitle}"
  "changenote" "Deploy version ${scriptVersion} built from [url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}]${GITHUB_SHA}[/url]"
 }
 EOF
       echo "VDF file generated $(cat "${vdfFilePath}")"
 
-      echo "Generating steam auth code"
-      steamAuthCode="$(node "${GITHUB_WORKSPACE}/.github/scripts/generate-code.js")"
-
       echo "Starting upload to Steam Workshop"
       ls -lha "${workshopItemPath}"
-      steamcmd +login "${STEAM_USERNAME}" "${STEAM_PASSWORD}" "${steamAuthCode}" +workshop_build_item "${vdfFilePath}" +exit
+      steamcmd +login "${STEAM_USERNAME}" +workshop_build_item "${vdfFilePath}" +exit
 
-      echo "Generating ZIP archive for mod.io"
-      compressedFilePath="${workshopItemPath}.zip"
+      compressedFilePath="${workshopAppPath}/${scriptName}-${scriptVersion}.zip"
+      echo "Generating ZIP archive for mod.io: ${compressedFilePath}"
       zip -r -j "${compressedFilePath}" "${workshopItemPath}"
 
       echo "Starting upload to mod.io"
-      curl -X POST "https://api.mod.io/v1/games/264/mods/${modIoFileId}/files" \
+      curl -X POST "https://api.mod.io/v1/games/${modIoAppId}/mods/${modIoFileId}/files" \
         -H "Authorization: Bearer ${MOD_IO_ACCESS_TOKEN}" \
         -H 'Content-Type: multipart/form-data' \
         -H 'Accept: application/json' \
         -F "filedata=@${compressedFilePath}" \
         -F "version=${scriptVersion}" \
-        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}<\a>"
+        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}</a>"
 
-      echo "Successfully uploaded ${scriptName} ${scriptVersion}!"
+      echo "Upload complete, changing script name in mod.io to ${newScriptTitle}"
+      curl -X PUT "https://api.mod.io/v1/games/${modIoAppId}/mods/${modIoFileId}" \
+        -H "Authorization: Bearer ${MOD_IO_ACCESS_TOKEN}" \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        -H 'Accept: application/json' \
+        -d "name=${newScriptTitle}"
+
+      echo "Successfully uploaded ${scriptName} version ${scriptVersion}!"
   fi
 done

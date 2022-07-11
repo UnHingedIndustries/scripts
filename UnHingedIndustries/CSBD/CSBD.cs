@@ -10,7 +10,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.CSBD {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "1.0.5";
+        const string ScriptVersion = "1.0.6";
         const string WorkshopItemId = "2813105329";
         const string ModIoItemId = "2197328";
 
