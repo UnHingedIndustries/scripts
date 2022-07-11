@@ -75,7 +75,9 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
  "contentfolder" "${workshopItemPath}"
  "previewfile" "${repositoryScriptPath}/thumb.png"
  "title" "${newScriptTitle}"
- "changenote" "Deploy version ${scriptVersion} built from [url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}]${GITHUB_SHA}[/url]\n\n${steamWorkshopChangelog}"
+ "changenote" "Deploy version ${scriptVersion} built from [url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}]${GITHUB_SHA}[/url]
+
+${steamWorkshopChangelog}"
 }
 EOF
       echo "VDF file generated $(cat "${vdfFilePath}")"
@@ -96,7 +98,7 @@ EOF
         -H 'Accept: application/json' \
         -F "filedata=@${compressedFilePath}" \
         -F "version=${scriptVersion}" \
-        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}</a>${modIoChangelog}"
+        -F "changelog=Deploy version ${scriptVersion} built from <a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}\">${GITHUB_SHA}</a><br><br>${modIoChangelog}"
 
       echo "Upload complete, changing script name in mod.io to ${newScriptTitle}"
       curl -X PUT "https://api.mod.io/v1/games/${modIoAppId}/mods/${modIoFileId}" \
