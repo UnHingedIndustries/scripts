@@ -47,6 +47,13 @@ Every script must have a corresponding `thumb.png` file in the same directory.
 
 The thumbnail file must be a PNG image with width of 636px and height of 358px.
 
+### Changelog
+
+The `changelog.txt` file must be overwritten whenever the script is updated.
+Contents of this file will be used to generate a log of changes for both Steam Workshop and mod.io.
+
+Each line corresponds to a single changelog entry; empty lines will be ignored.
+
 ## Automatic publishing
 
 If the script has been modified in any way, it will be automatically published to Steam Workshop after the change is merged to the main branch.
