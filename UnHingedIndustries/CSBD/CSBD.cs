@@ -10,7 +10,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.CSBD {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "1.0.8";
+        const string ScriptVersion = "1.1.0";
         const string WorkshopItemId = "2813105329";
         const string ModIoItemId = "2197328";
 
@@ -23,7 +23,7 @@ namespace UnHingedIndustries.CSBD {
         HashSet<IMyCubeGrid> _includeGrids;
 
         readonly List<IMyThrust> _maneuveringThrusters = new List<IMyThrust>();
-        readonly List<IMyThrust> _breakingThrusters = new List<IMyThrust>();
+        readonly List<IMyThrust> _brakingThrusters = new List<IMyThrust>();
         readonly List<IMyThrust> _boostThrusters = new List<IMyThrust>();
         readonly List<IMyThrust> _gravityThrusters = new List<IMyThrust>();
 
@@ -439,7 +439,7 @@ namespace UnHingedIndustries.CSBD {
             _includeGrids = FindAllMechanicallyConnectedSubgrids();
 
             PopulateBlocks("Maneuvering", _maneuveringThrusters);
-            PopulateBlocks("Breaking", _breakingThrusters);
+            PopulateBlocks("Braking", _brakingThrusters);
             PopulateBlocks("Boost", _boostThrusters);
             PopulateBlocks("Gravity", _gravityThrusters);
 
@@ -477,8 +477,8 @@ namespace UnHingedIndustries.CSBD {
                                 option => ToggleEnableState(option, _boostThrusters)
                             ),
                             new ScreenOption(
-                                "BREAKING   ", () => GetEnableState(_breakingThrusters),
-                                option => ToggleEnableState(option, _breakingThrusters)
+                                "BRAKING    ", () => GetEnableState(_brakingThrusters),
+                                option => ToggleEnableState(option, _brakingThrusters)
                             ),
                             new ScreenOption(
                                 "MANEUVERING", () => GetEnableState(_maneuveringThrusters),
