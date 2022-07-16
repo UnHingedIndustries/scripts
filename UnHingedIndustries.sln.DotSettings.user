@@ -17,6 +17,6 @@
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=_002Fhome_002Fpszymanski_002F_002Elocal_002Fshare_002FSteam_002Fsteamapps_002Fcommon_002FSpaceEngineers_002FBin64_002FVRage_002EMath_002EXmlSerializers_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=_002Fhome_002Fpszymanski_002F_002Elocal_002Fshare_002FSteam_002Fsteamapps_002Fcommon_002FSpaceEngineers_002FBin64_002FVRage_002EMod_002EIo_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=_002Fhome_002Fpszymanski_002F_002Elocal_002Fshare_002FSteam_002Fsteamapps_002Fcommon_002FSpaceEngineers_002FBin64_002FVRage_002EScripting_002Edll/@EntryIndexedValue">True</s:Boolean>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=fb6c4082_002D1ccf_002D4daf_002D94db_002D36e419848924/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Tests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
-  &lt;Project Location="/home/pszymanski/Code/UnHingedIndustries/UnHingedIndustriesTests" Presentation="&amp;lt;UnHingedIndustriesTests&amp;gt;" /&gt;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=fb6c4082_002D1ccf_002D4daf_002D94db_002D36e419848924/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Tests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;Project Location="\home\pszymanski\Code\UnHingedIndustries\UnHingedIndustriesTests" Presentation="&amp;lt;UnHingedIndustriesTests&amp;gt;" /&gt;&#xD;
 &lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>

@@ -5,7 +5,7 @@
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>disable</Nullable>
         <SpaceEngineersSharedLibsPath Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(HOME)\.local\share\Steam\steamapps\common\SpaceEngineers\Bin64</SpaceEngineersSharedLibsPath>
-        <SpaceEngineersSharedLibsPath Condition="$([MSBuild]::IsOSPlatform('Windows'))">TODO</SpaceEngineersSharedLibsPath> <!--TODO: figure out path for Windows-->
+        <SpaceEngineersSharedLibsPath Condition="$([MSBuild]::IsOSPlatform('Windows'))">C:\Program Files (x86)\Steam\steamapps\common\SpaceEngineers\Bin64</SpaceEngineersSharedLibsPath>
         <SpaceEngineersSharedLibsPath Condition="'$(SPACE_ENGINEERS_SHARED_LIBS_PATH)' != ''">$(SPACE_ENGINEERS_SHARED_LIBS_PATH)</SpaceEngineersSharedLibsPath>
         <LangVersion>6</LangVersion>
     </PropertyGroup>
