@@ -1,1 +1,1 @@
-Add option to specify custom ship controller block in configuration
+Add variables configuration for Animation Mode

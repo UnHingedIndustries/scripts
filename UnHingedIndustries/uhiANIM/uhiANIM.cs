@@ -11,7 +11,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.19";
+        const string ScriptVersion = "2.0.20";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -151,7 +151,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         Animation _animation;
 
-        class Animation {
+        public class Animation {
             public readonly Dictionary<String, AnimationSegment> SegmentNamesToSegments;
             public readonly IMyTextSurface AnimationInfoSurface;
             public readonly IMyShipController AnimationController;
@@ -242,14 +242,24 @@ namespace UnHingedIndustries.uhiANIM {
             AnimationSegmentMode CreateMode(MyIni deserializedValue, string segmentName, string modeName, IMyGridTerminalSystem gridTerminalSystem) {
                 var sectionName = segmentName + '.' + modeName;
 
-                var triggers = deserializedValue.Get(sectionName, "triggers")
-                                                .ToString()
-                                                .Split(',')
-                                                .Where(trigger => trigger.Length != 0)
-                                                .ToList();
-                var repeat = deserializedValue.Get(sectionName, "repeat").ToBoolean();
-                var priority = deserializedValue.Get(sectionName, "priority").ToInt32(0);
-                var steps = CreateSteps(deserializedValue.Get(sectionName, "steps"), gridTerminalSystem);
+                var variables = deserializedValue.Get(sectionName, "variables")
+                                                 .ToString()
+                                                 .Split('\n')
+                                                 .Select(variableNameAndValue => variableNameAndValue.Split('=', 2))
+                                                 .Where(variableNameAndValue => variableNameAndValue.Length == 2)
+                                                 .ToDictionary(
+                                                     variableNameAndValue => variableNameAndValue[0],
+                                                     variableNameAndValue => variableNameAndValue[1]
+                                                 );
+
+                var triggers = ReplaceVariables(variables, deserializedValue.Get(sectionName, "triggers"))
+                               .ToString()
+                               .Split(',')
+                               .Where(trigger => trigger.Length != 0)
+                               .ToList();
+                var repeat = ReplaceVariables(variables, deserializedValue.Get(sectionName, "repeat")).ToBoolean();
+                var priority = ReplaceVariables(variables, deserializedValue.Get(sectionName, "priority")).ToInt32(0);
+                var steps = CreateSteps(ReplaceVariables(variables, deserializedValue.Get(sectionName, "steps")), gridTerminalSystem);
 
                 return new AnimationSegmentMode(
                     modeName,
@@ -324,12 +334,27 @@ namespace UnHingedIndustries.uhiANIM {
 
                 throw new ArgumentException("invalid step type " + serializedStep);
             }
+            
+            MyIniValue ReplaceVariables(Dictionary<string, string> variables, MyIniValue value) {
+                if (variables.Count == 0) return value;
+                else {
+                    string newValue = value.ToString();
+                    foreach (var variableNameToValue in variables) {
+                        newValue = newValue.Replace("${" + variableNameToValue.Key + "}", variableNameToValue.Value);
+                    }
+
+                    return new MyIniValue(
+                        value.Key,
+                        newValue
+                    );
+                }
+            }
         }
 
         /**
         * Describes animation of a segment of the animatronic, e.g. legs.
         */
-        class AnimationSegment {
+        public class AnimationSegment {
             public readonly string Name;
             public readonly Dictionary<String, AnimationSegmentMode> ModeNameToMode;
 
@@ -342,7 +367,7 @@ namespace UnHingedIndustries.uhiANIM {
         /**
         * Describes a particular mode of segment's animation, e.g. legs moving forward.
         */
-        class AnimationSegmentMode {
+        public class AnimationSegmentMode {
             public readonly string Name;
             public readonly List<string> Triggers;
 
@@ -364,12 +389,12 @@ namespace UnHingedIndustries.uhiANIM {
         /**
         * Describes a single step of segment's animation mode, e.g. raising legs.
         */
-        interface IAnimationStep {
+        public interface IAnimationStep {
             bool IsCompleted(string argument, ControllerInput input);
             void Trigger(Dictionary<AnimationSegment, AnimationSegmentProgress> segmentsProgress, string argument, ControllerInput input);
         }
 
-        class ToggleAnimationStep : IAnimationStep {
+        public class ToggleAnimationStep : IAnimationStep {
             readonly List<IMyFunctionalBlock> _components;
             readonly bool _enable;
 
@@ -393,7 +418,7 @@ namespace UnHingedIndustries.uhiANIM {
             }
         }
 
-        class LockAnimationStep : IAnimationStep {
+        public class LockAnimationStep : IAnimationStep {
             readonly List<IMyLandingGear> _components;
             readonly bool _setToLock;
             readonly AnimationStepContinuityType _continuityType;
@@ -434,7 +459,7 @@ namespace UnHingedIndustries.uhiANIM {
             }
         }
 
-        class TriggerAnimationStep : IAnimationStep {
+        public class TriggerAnimationStep : IAnimationStep {
             AnimationSegment _segment;
             readonly string _segmentName;
             readonly string _modeName;
@@ -462,7 +487,7 @@ namespace UnHingedIndustries.uhiANIM {
             }
         }
 
-        class MoveAnimationStep : IAnimationStep {
+        public class MoveAnimationStep : IAnimationStep {
             readonly List<IMechanicalBlockWrapper> _components;
             readonly float _targetValue;
             readonly float _precision;
@@ -520,7 +545,7 @@ namespace UnHingedIndustries.uhiANIM {
             }
         }
 
-        class ShiftAnimationStep : IAnimationStep {
+        public class ShiftAnimationStep : IAnimationStep {
             readonly List<IMechanicalBlockWrapper> _components;
             readonly ShouldTrigger _trigger;
             readonly float _minimumValue;
@@ -601,7 +626,7 @@ namespace UnHingedIndustries.uhiANIM {
                               .First();
         }
 
-        class AnimationSegmentProgress {
+        public class AnimationSegmentProgress {
             public AnimationSegmentMode ActiveMode;
             public int ActiveStepId = -1;
         }
@@ -609,7 +634,7 @@ namespace UnHingedIndustries.uhiANIM {
         /**
          * Returns input multipliers for controller inputs, e.g. what percentage of maximum value for given input does the current input represent.
          */
-        class ControllerInput {
+        public class ControllerInput {
             readonly Animation _animation;
             readonly IMyShipController _controller;
 

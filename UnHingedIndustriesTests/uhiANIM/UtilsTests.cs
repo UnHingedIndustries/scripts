@@ -4,6 +4,7 @@ using UnHingedIndustries.uhiANIM;
 
 namespace UnHingedIndustriesTests.uhiANIM {
     public class UtilsTests {
+        [Test]
         public void GetStepParts_GivenInValidNumberOfParts_ShouldThrow() {
             Assert.Throws<ArgumentException>(() =>
                 Program.Utils.GetStepParts("test;1;2;3", 2)
