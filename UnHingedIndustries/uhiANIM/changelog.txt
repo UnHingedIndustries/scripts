@@ -1,1 +1,1 @@
-Add variables configuration for Animation Mode
+Add INCLUDE animation step type

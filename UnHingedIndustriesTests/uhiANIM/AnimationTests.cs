@@ -25,7 +25,9 @@ namespace UnHingedIndustriesTests.uhiANIM {
             var someOtherBlockMock = new Mock<IMyTerminalBlock>();
             gridTerminalSystemMock.Setup(it => it.GetBlockWithName("Some Block")).Returns(someBlockMock.Object);
             gridTerminalSystemMock.Setup(it => it.GetBlockWithName("Some Other Block")).Returns(someOtherBlockMock.Object);
-            someBlockMock.SetupGet(it => it.CustomData).Returns("");
+            someBlockMock.SetupGet(it => it.CustomData).Returns(
+                ReadAllText("../../../uhiANIM/example-animation-sub-definition.ini")
+            );
             someOtherBlockMock.SetupGet(it => it.CustomData).Returns("");
 
             // given info surface block
@@ -62,6 +64,10 @@ namespace UnHingedIndustriesTests.uhiANIM {
                 null
             )).Callback((List<IMyLandingGear> result, Func<IMyLandingGear, bool> collect) => result.Add(lockStepBlockMock.Object));
 
+            var includeStepBlockName = "Included Block";
+            var includeStepBlockMock = new Mock<IMyMechanicalConnectionBlock>();
+            gridTerminalSystemMock.Setup(it => it.GetBlockWithName(includeStepBlockName)).Returns(includeStepBlockMock.Object);
+
             // when
             var animation = new Program.Animation(programmableBlockMock.Object, gridTerminalSystemMock.Object);
 
@@ -89,6 +95,8 @@ namespace UnHingedIndustriesTests.uhiANIM {
             Assert.IsInstanceOf<Program.ToggleAnimationStep>(exampleMode.Steps[2]);
             Assert.IsInstanceOf<Program.LockAnimationStep>(exampleMode.Steps[3]);
             Assert.IsInstanceOf<Program.TriggerAnimationStep>(exampleMode.Steps[4]);
+            Assert.IsInstanceOf<Program.MoveAnimationStep>(exampleMode.Steps[5]);
+            Assert.IsInstanceOf<Program.MoveAnimationStep>(exampleMode.Steps[6]);
 
             gridTerminalSystemMock.Verify(it => it.GetBlockWithName(moveStepBlockName), Times.Once);
             gridTerminalSystemMock.Verify(it => it.GetBlockWithName(shiftStepBlockName), Times.Once);
@@ -107,6 +115,34 @@ namespace UnHingedIndustriesTests.uhiANIM {
                         null
                     ),
                 Times.Once
+            );
+            gridTerminalSystemMock.Verify(it => it.GetBlockWithName(includeStepBlockName), Times.Exactly(2));
+
+            // and sub-definition mode is setup
+            var subDefinitionMode = animation.SegmentNamesToSegments["someSubDefinitionSegment"].ModeNameToMode["someSubDefinitionMode"];
+            Assert.AreEqual(
+                new List<string> {"NONE"},
+                subDefinitionMode.Triggers
+            );
+        }
+
+        [Test]
+        public void Constructor_WhenAnimationContainsCircularInclusions_ShouldThrow() {
+            // given arguments
+            var programmableBlockMock = new Mock<IMyProgrammableBlock>();
+            var gridTerminalSystemMock = new Mock<IMyGridTerminalSystem>();
+
+            programmableBlockMock.SetupGet(it => it.CustomData).Returns(
+                ReadAllText("../../../uhiANIM/example-animation-circular-reference.ini")
+            );
+
+            // when
+            var exception = Assert.Throws<ArgumentException>(() => { new Program.Animation(programmableBlockMock.Object, gridTerminalSystemMock.Object); });
+
+            // then
+            Assert.AreEqual(
+                "circular inclusion is not allowed; started from exampleSegment.referenceStart (step INCLUDE;exampleSegment;referenceChain)",
+                exception.Message
             );
         }
     }

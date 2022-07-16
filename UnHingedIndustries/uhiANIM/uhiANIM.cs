@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Sandbox.Game.Entities;
 using Sandbox.ModAPI.Ingame;
@@ -11,7 +12,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.20";
+        const string ScriptVersion = "2.0.21";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -203,34 +204,34 @@ namespace UnHingedIndustries.uhiANIM {
                 );
                 RollSensitivity = Math.Abs((float) deserializedValue.Get("animation", "rollSensitivity").ToDecimal(1M));
 
-                SegmentNamesToSegments
-                    = animationDefiningBlocks.Concat(Enumerable.Repeat(thisProgrammableBlock, 1))
-                                             .Distinct()
-                                             .Select(block => block.CustomData)
-                                             .Select(serializedBlockValue => {
-                                                 var deserializedBlockValue = new MyIni();
-                                                 deserializedBlockValue.TryParse(serializedBlockValue);
-                                                 return deserializedBlockValue;
-                                             }).SelectMany(deserializedBlockValue => {
-                                                 var sectionNames = new List<string>();
-                                                 deserializedBlockValue.GetSections(sectionNames);
-                                                 return sectionNames.Where(sectionName => sectionName != "animation")
-                                                                    .Select(segmentAndModeName => segmentAndModeName.Split('.'))
-                                                                    .GroupBy(segmentAndModeName => segmentAndModeName[0])
-                                                                    .Select(segmentNameToSegmentAndModeName => {
-                                                                        return CreateSegment(
-                                                                            deserializedBlockValue,
-                                                                            segmentNameToSegmentAndModeName.Key,
-                                                                            segmentNameToSegmentAndModeName.Select(it => it[1]).ToList(),
-                                                                            gridTerminalSystem
-                                                                        );
-                                                                    });
-                                             }).ToDictionary(segment => segment.Name);
+                var serializedAnimation = string.Join(
+                    "\n\n",
+                    animationDefiningBlocks.Concat(Enumerable.Repeat(thisProgrammableBlock, 1))
+                                           .Distinct()
+                                           .Select(block => block.CustomData)
+                );
+
+                var deserializedAnimation = new MyIni();
+                deserializedAnimation.TryParse(serializedAnimation);
+
+                var sectionNames = new List<string>();
+                deserializedAnimation.GetSections(sectionNames);
+                SegmentNamesToSegments = sectionNames.Where(sectionName => sectionName != "animation")
+                                                     .Select(segmentAndModeName => segmentAndModeName.Split('.'))
+                                                     .GroupBy(segmentAndModeName => segmentAndModeName[0])
+                                                     .Select(segmentNameToSegmentAndModeName => {
+                                                         return CreateSegment(
+                                                             deserializedAnimation,
+                                                             segmentNameToSegmentAndModeName.Key,
+                                                             segmentNameToSegmentAndModeName.Select(it => it[1]).ToList(),
+                                                             gridTerminalSystem
+                                                         );
+                                                     }).ToDictionary(segment => segment.Name);
             }
 
-            AnimationSegment CreateSegment(MyIni deserializedValue, string segmentName, List<string> modeNames, IMyGridTerminalSystem gridTerminalSystem) {
+            AnimationSegment CreateSegment(MyIni deserializedAnimation, string segmentName, List<string> modeNames, IMyGridTerminalSystem gridTerminalSystem) {
                 var modeNamesToModes = modeNames.Select(modeName =>
-                    CreateMode(deserializedValue, segmentName, modeName, gridTerminalSystem)
+                    CreateMode(deserializedAnimation, segmentName, modeName, gridTerminalSystem, new Dictionary<string, string>(), null)
                 ).ToDictionary(mode => mode.Name);
 
                 return new AnimationSegment(
@@ -239,27 +240,41 @@ namespace UnHingedIndustries.uhiANIM {
                 );
             }
 
-            AnimationSegmentMode CreateMode(MyIni deserializedValue, string segmentName, string modeName, IMyGridTerminalSystem gridTerminalSystem) {
+            AnimationSegmentMode CreateMode(
+                MyIni deserializedAnimation,
+                string segmentName,
+                string modeName,
+                IMyGridTerminalSystem gridTerminalSystem,
+                Dictionary<string, string> overrideVariables,
+                string includeOf
+            ) {
                 var sectionName = segmentName + '.' + modeName;
 
-                var variables = deserializedValue.Get(sectionName, "variables")
-                                                 .ToString()
-                                                 .Split('\n')
-                                                 .Select(variableNameAndValue => variableNameAndValue.Split('=', 2))
-                                                 .Where(variableNameAndValue => variableNameAndValue.Length == 2)
-                                                 .ToDictionary(
-                                                     variableNameAndValue => variableNameAndValue[0],
-                                                     variableNameAndValue => variableNameAndValue[1]
-                                                 );
+                var variables = deserializedAnimation.Get(sectionName, "variables")
+                                                     .ToString()
+                                                     .Split('\n')
+                                                     .Select(variableNameAndValue => variableNameAndValue.Split('=', 2))
+                                                     .Where(variableNameAndValue => variableNameAndValue.Length == 2)
+                                                     .ToDictionary(
+                                                         variableNameAndValue => variableNameAndValue[0],
+                                                         variableNameAndValue => overrideVariables.GetValueOrDefault(variableNameAndValue[0], variableNameAndValue[1])
+                                                     );
 
-                var triggers = ReplaceVariables(variables, deserializedValue.Get(sectionName, "triggers"))
+                var triggers = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "triggers"))
                                .ToString()
                                .Split(',')
                                .Where(trigger => trigger.Length != 0)
                                .ToList();
-                var repeat = ReplaceVariables(variables, deserializedValue.Get(sectionName, "repeat")).ToBoolean();
-                var priority = ReplaceVariables(variables, deserializedValue.Get(sectionName, "priority")).ToInt32(0);
-                var steps = CreateSteps(ReplaceVariables(variables, deserializedValue.Get(sectionName, "steps")), gridTerminalSystem);
+                var repeat = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "repeat")).ToBoolean();
+                var priority = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "priority")).ToInt32(0);
+                var steps = CreateSteps(
+                    deserializedAnimation,
+                    segmentName,
+                    modeName,
+                    ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "steps")),
+                    gridTerminalSystem,
+                    includeOf
+                );
 
                 return new AnimationSegmentMode(
                     modeName,
@@ -270,73 +285,132 @@ namespace UnHingedIndustries.uhiANIM {
                 );
             }
 
-            List<IAnimationStep> CreateSteps(MyIniValue serializedSteps, IMyGridTerminalSystem gridTerminalSystem) {
+            List<IAnimationStep> CreateSteps(
+                MyIni deserializedAnimation,
+                string segmentName,
+                string modeName,
+                MyIniValue serializedSteps,
+                IMyGridTerminalSystem gridTerminalSystem,
+                string includeOf
+            ) {
                 IAnimationStep previousStep = null;
                 return serializedSteps.ToString()
                                       .Split('\n')
                                       .Where(serializedStep => !serializedStep.StartsWith("-"))
-                                      .Select(serializedStep => {
+                                      .SelectMany(serializedStep => {
                                           var stepType = Utils.GetEnumFromString<AnimationStepType>(
                                               serializedStep.Split(';')[0]
                                           );
 
-                                          var currentStep = CreateStep(
+                                          var currentSteps = CreateSteps(
+                                              deserializedAnimation,
+                                              segmentName,
+                                              modeName,
                                               stepType,
                                               serializedStep,
                                               gridTerminalSystem,
-                                              previousStep
+                                              previousStep,
+                                              includeOf
                                           );
 
-                                          previousStep = currentStep;
-                                          return currentStep;
+                                          previousStep = currentSteps.LastOrDefault();
+                                          return currentSteps;
                                       })
                                       .ToList();
             }
 
-            IAnimationStep CreateStep(
+            List<IAnimationStep> CreateSteps(
+                MyIni deserializedAnimation,
+                string segmentName,
+                string modeName,
                 AnimationStepType stepType,
                 string serializedStep,
                 IMyGridTerminalSystem gridTerminalSystem,
-                IAnimationStep previousStep
+                IAnimationStep previousStep,
+                string includeOf
             ) {
                 if (stepType == AnimationStepType.Move) {
-                    return new MoveAnimationStep(
-                        serializedStep,
-                        gridTerminalSystem,
-                        previousStep
-                    );
+                    return new List<IAnimationStep>(1) {
+                        new MoveAnimationStep(
+                            serializedStep,
+                            gridTerminalSystem,
+                            previousStep
+                        )
+                    };
                 }
 
                 if (stepType == AnimationStepType.Shift) {
-                    return new ShiftAnimationStep(
-                        serializedStep,
-                        gridTerminalSystem
-                    );
+                    return new List<IAnimationStep>(1) {
+                        new ShiftAnimationStep(
+                            serializedStep,
+                            gridTerminalSystem
+                        )
+                    };
                 }
 
                 if (stepType == AnimationStepType.Toggle) {
-                    return new ToggleAnimationStep(
-                        serializedStep,
-                        gridTerminalSystem
-                    );
+                    return new List<IAnimationStep>(1) {
+                        new ToggleAnimationStep(
+                            serializedStep,
+                            gridTerminalSystem
+                        )
+                    };
                 }
 
                 if (stepType == AnimationStepType.Lock) {
-                    return new LockAnimationStep(
-                        serializedStep,
-                        gridTerminalSystem
-                    );
+                    return new List<IAnimationStep>(1) {
+                        new LockAnimationStep(
+                            serializedStep,
+                            gridTerminalSystem
+                        )
+                    };
                 }
 
                 if (stepType == AnimationStepType.Trigger) {
-                    return new TriggerAnimationStep(serializedStep);
+                    return new List<IAnimationStep>(1) {
+                        new TriggerAnimationStep(serializedStep)
+                    };
+                }
+
+                if (stepType == AnimationStepType.Include) {
+                    var stepParts = serializedStep.Split(";");
+                    var requiredCount = 3;
+                    if (stepParts.Length < requiredCount) {
+                        throw new ArgumentException(
+                            "step requires at least " + requiredCount + " arguments, received " + stepParts.Length + " in " + serializedStep
+                        );
+                    }
+
+                    var includeSegmentName = stepParts[1];
+                    var includeModeName = stepParts[2];
+                    var includes = segmentName + '.' + modeName + " (step " + serializedStep + ')';
+
+                    if (includes == includeOf) {
+                        throw new ArgumentException("circular inclusion is not allowed; started from " + includeOf);
+                    }
+
+                    var overrideVariables = stepParts.Skip(requiredCount)
+                                                     .Select(variableNameAndValue => variableNameAndValue.Split('=', 2))
+                                                     .Where(variableNameAndValue => variableNameAndValue.Length == 2)
+                                                     .ToDictionary(
+                                                         variableNameAndValue => variableNameAndValue[0],
+                                                         variableNameAndValue => variableNameAndValue[1]
+                                                     );
+                    return CreateMode(
+                        deserializedAnimation,
+                        includeSegmentName,
+                        includeModeName,
+                        gridTerminalSystem,
+                        overrideVariables,
+                        includeOf != null ? includeOf : includes
+                    ).Steps;
                 }
 
                 throw new ArgumentException("invalid step type " + serializedStep);
             }
-            
+
             MyIniValue ReplaceVariables(Dictionary<string, string> variables, MyIniValue value) {
-                if (variables.Count == 0) return value;
+                if (value.Key.IsEmpty || value.IsEmpty || variables.Count == 0) return value;
                 else {
                     string newValue = value.ToString();
                     foreach (var variableNameToValue in variables) {
@@ -614,7 +688,8 @@ namespace UnHingedIndustries.uhiANIM {
             Shift,
             Lock,
             Toggle,
-            Trigger
+            Trigger,
+            Include
         }
 
         static IMyShipController FindShipController(IMyProgrammableBlock thisProgrammableBlock, IMyGridTerminalSystem gridTerminalSystem) {

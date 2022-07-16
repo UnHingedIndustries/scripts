@@ -24,6 +24,6 @@
 &lt;/SessionState&gt;</s:String>
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=fb6c4082_002D1ccf_002D4daf_002D94db_002D36e419848924/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Tests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;NUnit3x::A825351F-FA5D-4C39-9973-7A84F7DEE3D5::net6.0::UnHingedIndustriesTests.uhiANIM.AnimationTests.Constructor_WhenAnimationIsWellDefined_ShouldCreateAnimationWithAllSteps&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;NUnit3x::A825351F-FA5D-4C39-9973-7A84F7DEE3D5::net6.0::UnHingedIndustriesTests.uhiANIM.AnimationTests&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
 &lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>
