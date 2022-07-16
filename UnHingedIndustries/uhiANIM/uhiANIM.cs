@@ -9,7 +9,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.1.1";
+        const string ScriptVersion = "2.1.2";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -409,7 +409,7 @@ namespace UnHingedIndustries.uhiANIM {
                                  variableNameAndValue => variableNameAndValue[0],
                                  variableNameAndValue => overrideVariables.GetValueOrDefault(
                                      variableNameAndValue[0],
-                                     string.Join('=', variableNameAndValue.Skip(1))
+                                     string.Join("=", variableNameAndValue.Skip(1))
                                  )
                              );
             }
