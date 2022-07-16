@@ -9,7 +9,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.1.0";
+        const string ScriptVersion = "2.1.1";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -250,7 +250,7 @@ namespace UnHingedIndustries.uhiANIM {
                 var variables = deserializedAnimation.Get(sectionName, "variables")
                                                      .ToString()
                                                      .Split('\n')
-                                                     .Select(variableNameAndValue => variableNameAndValue.Split('=', 2))
+                                                     .Select(variableNameAndValue => variableNameAndValue.Split('='))
                                                      .Where(variableNameAndValue => variableNameAndValue.Length == 2)
                                                      .ToDictionary(
                                                          variableNameAndValue => variableNameAndValue[0],
@@ -359,7 +359,7 @@ namespace UnHingedIndustries.uhiANIM {
                 }
 
                 if (stepType == AnimationStepType.Include) {
-                    var stepParts = serializedStep.Split(";");
+                    var stepParts = serializedStep.Split(';');
                     var requiredCount = 3;
                     if (stepParts.Length < requiredCount) {
                         throw new ArgumentException(
@@ -376,7 +376,7 @@ namespace UnHingedIndustries.uhiANIM {
                     }
 
                     var overrideVariables = stepParts.Skip(requiredCount)
-                                                     .Select(variableNameAndValue => variableNameAndValue.Split('=', 2))
+                                                     .Select(variableNameAndValue => variableNameAndValue.Split('='))
                                                      .Where(variableNameAndValue => variableNameAndValue.Length == 2)
                                                      .ToDictionary(
                                                          variableNameAndValue => variableNameAndValue[0],
