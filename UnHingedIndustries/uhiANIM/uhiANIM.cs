@@ -1,18 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
-using Sandbox.Game.Entities;
 using Sandbox.ModAPI.Ingame;
-using Sandbox.ModAPI.Interfaces;
 using SpaceEngineers.Game.ModAPI.Ingame;
 using VRage.Game.ModAPI.Ingame.Utilities;
 using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.21";
+        const string ScriptVersion = "2.1.0";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -266,7 +263,7 @@ namespace UnHingedIndustries.uhiANIM {
                                .Where(trigger => trigger.Length != 0)
                                .ToList();
                 var repeat = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "repeat")).ToBoolean();
-                var priority = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "priority")).ToInt32(0);
+                var priority = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "priority")).ToInt32();
                 var steps = CreateSteps(
                     deserializedAnimation,
                     segmentName,
@@ -293,29 +290,20 @@ namespace UnHingedIndustries.uhiANIM {
                 IMyGridTerminalSystem gridTerminalSystem,
                 string includeOf
             ) {
-                IAnimationStep previousStep = null;
                 return serializedSteps.ToString()
                                       .Split('\n')
                                       .Where(serializedStep => !serializedStep.StartsWith("-"))
-                                      .SelectMany(serializedStep => {
-                                          var stepType = Utils.GetEnumFromString<AnimationStepType>(
+                                      .SelectMany(serializedStep => CreateSteps(
+                                          deserializedAnimation,
+                                          segmentName,
+                                          modeName,
+                                          Utils.GetEnumFromString<AnimationStepType>(
                                               serializedStep.Split(';')[0]
-                                          );
-
-                                          var currentSteps = CreateSteps(
-                                              deserializedAnimation,
-                                              segmentName,
-                                              modeName,
-                                              stepType,
-                                              serializedStep,
-                                              gridTerminalSystem,
-                                              previousStep,
-                                              includeOf
-                                          );
-
-                                          previousStep = currentSteps.LastOrDefault();
-                                          return currentSteps;
-                                      })
+                                          ),
+                                          serializedStep,
+                                          gridTerminalSystem,
+                                          includeOf
+                                      ))
                                       .ToList();
             }
 
@@ -326,15 +314,13 @@ namespace UnHingedIndustries.uhiANIM {
                 AnimationStepType stepType,
                 string serializedStep,
                 IMyGridTerminalSystem gridTerminalSystem,
-                IAnimationStep previousStep,
                 string includeOf
             ) {
                 if (stepType == AnimationStepType.Move) {
                     return new List<IAnimationStep>(1) {
                         new MoveAnimationStep(
                             serializedStep,
-                            gridTerminalSystem,
-                            previousStep
+                            gridTerminalSystem
                         )
                     };
                 }
@@ -568,25 +554,18 @@ namespace UnHingedIndustries.uhiANIM {
             readonly float _velocity;
             readonly AnimationStepContinuityType _continuityType;
 
-            public MoveAnimationStep(string serializedStep, IMyGridTerminalSystem gridTerminalSystem, IAnimationStep previousStep) {
+            public MoveAnimationStep(string serializedStep, IMyGridTerminalSystem gridTerminalSystem) {
                 var stepParts = Utils.GetStepParts(serializedStep, 7);
 
-                var previousMoveStep = previousStep is MoveAnimationStep ? previousStep as MoveAnimationStep : null;
-                if (stepParts.Any(stepPart => stepPart.Length == 0) && previousMoveStep == null) {
-                    throw new ArgumentException("no previous value to fill in to " + serializedStep);
-                }
-
-                _components = stepParts[2].Length != 0
-                    ? Utils.FindBlocks<IMyMechanicalConnectionBlock>(
-                        gridTerminalSystem,
-                        Utils.GetEnumFromString<ComponentSearchType>(stepParts[1]),
-                        stepParts[2]
-                    ).Select(Wrap).ToList()
-                    : previousMoveStep._components;
-                _targetValue = stepParts[3].Length != 0 ? float.Parse(stepParts[3]) : previousMoveStep._targetValue;
-                _precision = stepParts[4].Length != 0 ? float.Parse(stepParts[4]) : previousMoveStep._precision;
-                _velocity = stepParts[5].Length != 0 ? float.Parse(stepParts[5]) : previousMoveStep._velocity;
-                _continuityType = stepParts[6].Length != 0 ? Utils.GetEnumFromString<AnimationStepContinuityType>(stepParts[6]) : previousMoveStep._continuityType;
+                _components = Utils.FindBlocks<IMyMechanicalConnectionBlock>(
+                    gridTerminalSystem,
+                    Utils.GetEnumFromString<ComponentSearchType>(stepParts[1]),
+                    stepParts[2]
+                ).Select(Wrap).ToList();
+                _targetValue = float.Parse(stepParts[3]);
+                _precision = float.Parse(stepParts[4]);
+                _velocity = float.Parse(stepParts[5]);
+                _continuityType = Utils.GetEnumFromString<AnimationStepContinuityType>(stepParts[6]);
             }
 
             public bool IsCompleted(string argument, ControllerInput input) {

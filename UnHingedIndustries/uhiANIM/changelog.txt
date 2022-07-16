@@ -1,1 +1,1 @@
-Add INCLUDE animation step type
+Remove default values being passed down from previous MOVE step
