@@ -247,15 +247,13 @@ namespace UnHingedIndustries.uhiANIM {
             ) {
                 var sectionName = segmentName + '.' + modeName;
 
-                var variables = deserializedAnimation.Get(sectionName, "variables")
-                                                     .ToString()
-                                                     .Split('\n')
-                                                     .Select(variableNameAndValue => variableNameAndValue.Split('='))
-                                                     .Where(variableNameAndValue => variableNameAndValue.Length == 2)
-                                                     .ToDictionary(
-                                                         variableNameAndValue => variableNameAndValue[0],
-                                                         variableNameAndValue => overrideVariables.GetValueOrDefault(variableNameAndValue[0], variableNameAndValue[1])
-                                                     );
+                var variables = ParseVariables(
+                    deserializedAnimation.Get(sectionName, "variables")
+                                         .ToString()
+                                         .Split('\n')
+                                         .ToList(),
+                    overrideVariables
+                );
 
                 var triggers = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "triggers"))
                                .ToString()
@@ -375,13 +373,7 @@ namespace UnHingedIndustries.uhiANIM {
                         throw new ArgumentException("circular inclusion is not allowed; started from " + includeOf);
                     }
 
-                    var overrideVariables = stepParts.Skip(requiredCount)
-                                                     .Select(variableNameAndValue => variableNameAndValue.Split('='))
-                                                     .Where(variableNameAndValue => variableNameAndValue.Length == 2)
-                                                     .ToDictionary(
-                                                         variableNameAndValue => variableNameAndValue[0],
-                                                         variableNameAndValue => variableNameAndValue[1]
-                                                     );
+                    var overrideVariables = ParseVariables(stepParts.Skip(requiredCount).ToList(), new Dictionary<string, string>());
                     return CreateMode(
                         deserializedAnimation,
                         includeSegmentName,
@@ -408,6 +400,18 @@ namespace UnHingedIndustries.uhiANIM {
                         newValue
                     );
                 }
+            }
+
+            Dictionary<string, string> ParseVariables(List<string> source, Dictionary<string, string> overrideVariables) {
+                return source.Select(variableNameAndValue => variableNameAndValue.Split('='))
+                             .Where(variableNameAndValue => variableNameAndValue.Length >= 2)
+                             .ToDictionary(
+                                 variableNameAndValue => variableNameAndValue[0],
+                                 variableNameAndValue => overrideVariables.GetValueOrDefault(
+                                     variableNameAndValue[0],
+                                     string.Join('=', variableNameAndValue.Skip(1))
+                                 )
+                             );
             }
         }
 
