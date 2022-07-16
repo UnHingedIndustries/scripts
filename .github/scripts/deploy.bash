@@ -82,9 +82,12 @@ ${steamWorkshopChangelog}"
 EOF
       echo "VDF file generated $(cat "${vdfFilePath}")"
 
+      echo "Generating steam auth code"
+      steamAuthCode="$(node "${GITHUB_WORKSPACE}/.github/scripts/generate-code.js")"
+
       echo "Starting upload to Steam Workshop"
       ls -lha "${workshopItemPath}"
-      steamcmd +login "${STEAM_USERNAME}" +workshop_build_item "${vdfFilePath}" +exit
+      steamcmd +login "${STEAM_USERNAME}" "${STEAM_PASSWORD}" "${steamAuthCode}" +workshop_build_item "${vdfFilePath}" +exit
 
       compressedFilePath="${workshopAppPath}/${scriptName}-${scriptVersion}.zip"
       echo "Generating ZIP archive for mod.io: ${compressedFilePath}"

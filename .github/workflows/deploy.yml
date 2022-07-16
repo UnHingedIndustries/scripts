@@ -28,8 +28,6 @@ jobs:
       - name: Setup SteamCMD
         id: setup-steamcmd
         uses: CyberAndrii/setup-steamcmd@v1
-      - name: Login to Steam
-        run: ${GITHUB_WORKSPACE}/.github/scripts/login-to-steam.bash
       - name: Download scripts from Steam Workshop
         run: ${GITHUB_WORKSPACE}/.github/scripts/download-workshop-items.bash
       - name: Deploy scripts

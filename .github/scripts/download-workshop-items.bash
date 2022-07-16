@@ -10,6 +10,9 @@ for rawScriptMetadata in $("${GITHUB_WORKSPACE}/.github/scripts/for-each-script.
   scriptName="$(basename "${repositoryScriptFile}")"
   workshopFileId="${scriptMetadata[2]}"
 
+  echo "Generating steam auth code"
+  steamAuthCode="$(node "${GITHUB_WORKSPACE}/.github/scripts/generate-code.js")"
+
   echo "Downloading script ${scriptName}"
-  steamcmd +login "${STEAM_USERNAME}" +workshop_download_item "${steamAppId}" "${workshopFileId}" +exit
+  steamcmd +login "${STEAM_USERNAME}" "${STEAM_PASSWORD}" "${steamAuthCode}" +workshop_download_item "${steamAppId}" "${workshopFileId}" +exit
 done
