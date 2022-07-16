@@ -11,7 +11,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.0.18";
+        const string ScriptVersion = "2.0.19";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -154,6 +154,7 @@ namespace UnHingedIndustries.uhiANIM {
         class Animation {
             public readonly Dictionary<String, AnimationSegment> SegmentNamesToSegments;
             public readonly IMyTextSurface AnimationInfoSurface;
+            public readonly IMyShipController AnimationController;
             public readonly short ControllerDeadzonePercentage;
             public readonly bool AutomaticallyDetermineInputSensitivity;
             public Vector3 MoveIndicatorSensitivity;
@@ -178,6 +179,15 @@ namespace UnHingedIndustries.uhiANIM {
                 var infoSurfaceBlock = gridTerminalSystem.GetBlockWithName(infoSurfaceName);
                 if (infoSurfaceBlock != null && infoSurfaceBlock is IMyTextSurface) {
                     AnimationInfoSurface = infoSurfaceBlock as IMyTextSurface;
+                }
+
+                var controllerName = deserializedValue.Get("animation", "controller").ToString();
+                var controllerBlock = gridTerminalSystem.GetBlockWithName(controllerName);
+                if (controllerBlock != null && controllerBlock is IMyShipController) {
+                    AnimationController = controllerBlock as IMyShipController;
+                }
+                else {
+                    AnimationController = FindShipController(thisProgrammableBlock, gridTerminalSystem);
                 }
 
                 ControllerDeadzonePercentage = deserializedValue.Get("animation", "controllerDeadzone").ToInt16(10);
@@ -582,19 +592,13 @@ namespace UnHingedIndustries.uhiANIM {
             Trigger
         }
 
-        IMyShipController _foundController;
-
-        IMyShipController GetController() {
-            if (_foundController == null) {
-                var controllers = new List<IMyShipController>();
-                GridTerminalSystem.GetBlocksOfType(controllers);
-                _foundController = controllers.Where(it => it.CubeGrid == Me.CubeGrid)
-                                              .Where(it => it.IsMainCockpit)
-                                              .DefaultIfEmpty(controllers.FirstOrDefault())
-                                              .First();
-            }
-
-            return _foundController;
+        static IMyShipController FindShipController(IMyProgrammableBlock thisProgrammableBlock, IMyGridTerminalSystem gridTerminalSystem) {
+            var controllers = new List<IMyShipController>();
+            gridTerminalSystem.GetBlocksOfType(controllers);
+            return controllers.Where(it => it.CubeGrid == thisProgrammableBlock.CubeGrid)
+                              .Where(it => it.IsMainCockpit)
+                              .DefaultIfEmpty(controllers.FirstOrDefault())
+                              .First();
         }
 
         class AnimationSegmentProgress {
@@ -609,9 +613,9 @@ namespace UnHingedIndustries.uhiANIM {
             readonly Animation _animation;
             readonly IMyShipController _controller;
 
-            public ControllerInput(Animation animation, IMyShipController controller) {
+            public ControllerInput(Animation animation) {
                 _animation = animation;
-                _controller = controller;
+                _controller = animation.AnimationController;
             }
 
             public float Forward => InputMultiplier(_controller.MoveIndicator.Z, -_animation.MoveIndicatorSensitivity.Z);
@@ -657,9 +661,11 @@ namespace UnHingedIndustries.uhiANIM {
                 case "CONTROLLER_NO_INPUT":
                     return (argument, input) =>
                         (input.Forward + input.Backward + input.Left + input.Right + input.Up + input.Down
-                        + input.RollClockwise + input.RollCounterClockwise
-                        + input.PitchUp + input.PitchDown
-                        + input.RotateLeft + input.RotateRight) == 0 ? 1 : 0;
+                         + input.RollClockwise + input.RollCounterClockwise
+                         + input.PitchUp + input.PitchDown
+                         + input.RotateLeft + input.RotateRight) == 0
+                            ? 1
+                            : 0;
                 case "CONTROLLER_FORWARD": return (argument, input) => input.Forward;
                 case "CONTROLLER_BACKWARD": return (argument, input) => input.Backward;
                 case "CONTROLLER_NEITHER_FORWARD_NOR_BACKWARD": return (argument, input) => (input.Forward + input.Backward) == 0 ? 1 : 0;
@@ -687,7 +693,6 @@ namespace UnHingedIndustries.uhiANIM {
 
         void SetupAnimation() {
             Echo("Setting up animation...");
-            _foundController = null;
             _animation = new Animation(Me, GridTerminalSystem);
 
             _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
@@ -856,7 +861,8 @@ namespace UnHingedIndustries.uhiANIM {
                 : Me.GetSurface(0);
         }
 
-        void AutomaticallyDetermineSensitivity(Animation animation, IMyShipController controller) {
+        void AutomaticallyDetermineSensitivity(Animation animation) {
+            var controller = animation.AnimationController;
             animation.MoveIndicatorSensitivity = new Vector3(
                 Math.Max(animation.MoveIndicatorSensitivity.X, Math.Abs(controller.MoveIndicator.X)),
                 Math.Max(animation.MoveIndicatorSensitivity.Y, Math.Abs(controller.MoveIndicator.Y)),
@@ -922,10 +928,9 @@ namespace UnHingedIndustries.uhiANIM {
                 }
             }
 
-            var controller = GetController();
-            var input = new ControllerInput(_animation, controller);
+            var input = new ControllerInput(_animation);
             if (_animation.AutomaticallyDetermineInputSensitivity) {
-                AutomaticallyDetermineSensitivity(_animation, controller);
+                AutomaticallyDetermineSensitivity(_animation);
             }
 
             // Change animation modes
