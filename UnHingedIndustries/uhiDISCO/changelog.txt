@@ -1,1 +1,4 @@
-Create script
+Initial script prototype implementation
+Add Starburst effect
+Add Rolling effect
+Add Fade effect
