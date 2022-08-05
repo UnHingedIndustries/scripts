@@ -9,7 +9,7 @@ using VRageMath;
 
 namespace UnHingedIndustries.uhiANIM {
     public sealed class Program : MyGridProgram {
-        const string ScriptVersion = "2.1.2";
+        const string ScriptVersion = "2.1.3";
         const string WorkshopItemId = "2825279640";
         const string ModIoItemId = "2197324";
 
@@ -62,11 +62,11 @@ namespace UnHingedIndustries.uhiANIM {
 
         static IMechanicalBlockWrapper Wrap(IMyMechanicalConnectionBlock mechanicalBlock) {
             if (mechanicalBlock is IMyMotorStator) {
-                return new MotorWrapper((IMyMotorStator) mechanicalBlock);
+                return new MotorWrapper((IMyMotorStator)mechanicalBlock);
             }
 
             if (mechanicalBlock is IMyPistonBase) {
-                return new PistonWrapper((IMyPistonBase) mechanicalBlock);
+                return new PistonWrapper((IMyPistonBase)mechanicalBlock);
             }
 
             return new UnsupportedWrapper();
@@ -89,7 +89,7 @@ namespace UnHingedIndustries.uhiANIM {
 
             public string Name => _delegate.CustomName;
 
-            public float Value => (float) ((_delegate.Angle * 180) / Math.PI);
+            public float Value => (float)((_delegate.Angle * 180) / Math.PI);
 
             public float Velocity {
                 get { return _delegate.TargetVelocityRPM; }
@@ -191,15 +191,15 @@ namespace UnHingedIndustries.uhiANIM {
                 ControllerDeadzonePercentage = deserializedValue.Get("animation", "controllerDeadzone").ToInt16(10);
                 AutomaticallyDetermineInputSensitivity = deserializedValue.Get("animation", "autoSensitivity").ToBoolean();
                 MoveIndicatorSensitivity = new Vector3(
-                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.X").ToDecimal(1M)),
-                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.Y").ToDecimal(1M)),
-                    Math.Abs((float) deserializedValue.Get("animation", "moveSensitivity.Z").ToDecimal(1M))
+                    Math.Abs((float)deserializedValue.Get("animation", "moveSensitivity.X").ToDecimal(1M)),
+                    Math.Abs((float)deserializedValue.Get("animation", "moveSensitivity.Y").ToDecimal(1M)),
+                    Math.Abs((float)deserializedValue.Get("animation", "moveSensitivity.Z").ToDecimal(1M))
                 );
                 RotationSensitivity = new Vector2(
-                    Math.Abs((float) deserializedValue.Get("animation", "rotationSensitivity.X").ToDecimal(9M)),
-                    Math.Abs((float) deserializedValue.Get("animation", "rotationSensitivity.Y").ToDecimal(9M))
+                    Math.Abs((float)deserializedValue.Get("animation", "rotationSensitivity.X").ToDecimal(9M)),
+                    Math.Abs((float)deserializedValue.Get("animation", "rotationSensitivity.Y").ToDecimal(9M))
                 );
-                RollSensitivity = Math.Abs((float) deserializedValue.Get("animation", "rollSensitivity").ToDecimal(1M));
+                RollSensitivity = Math.Abs((float)deserializedValue.Get("animation", "rollSensitivity").ToDecimal(1M));
 
                 var serializedAnimation = string.Join(
                     "\n\n",
@@ -228,7 +228,15 @@ namespace UnHingedIndustries.uhiANIM {
 
             AnimationSegment CreateSegment(MyIni deserializedAnimation, string segmentName, List<string> modeNames, IMyGridTerminalSystem gridTerminalSystem) {
                 var modeNamesToModes = modeNames.Select(modeName =>
-                    CreateMode(deserializedAnimation, segmentName, modeName, gridTerminalSystem, new Dictionary<string, string>(), null)
+                    CreateMode(
+                        deserializedAnimation,
+                        segmentName,
+                        modeName,
+                        gridTerminalSystem,
+                        new Dictionary<string, string>(),
+                        null,
+                        true
+                    )
                 ).ToDictionary(mode => mode.Name);
 
                 return new AnimationSegment(
@@ -243,7 +251,8 @@ namespace UnHingedIndustries.uhiANIM {
                 string modeName,
                 IMyGridTerminalSystem gridTerminalSystem,
                 Dictionary<string, string> overrideVariables,
-                string includeOf
+                string includeOf,
+                bool allowLazy
             ) {
                 var sectionName = segmentName + '.' + modeName;
 
@@ -260,8 +269,25 @@ namespace UnHingedIndustries.uhiANIM {
                                .Split(',')
                                .Where(trigger => trigger.Length != 0)
                                .ToList();
-                var repeat = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "repeat")).ToBoolean();
+
                 var priority = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "priority")).ToInt32();
+                if (allowLazy && deserializedAnimation.Get(sectionName, "lazy").ToBoolean()) {
+                    return new LazyAnimationSegmentMode(
+                        modeName,
+                        triggers,
+                        priority,
+                        () => CreateMode(
+                            deserializedAnimation,
+                            segmentName,
+                            modeName,
+                            gridTerminalSystem,
+                            overrideVariables,
+                            includeOf,
+                            false
+                        ));
+                }
+
+                var repeat = ReplaceVariables(variables, deserializedAnimation.Get(sectionName, "repeat")).ToBoolean();
                 var steps = CreateSteps(
                     deserializedAnimation,
                     segmentName,
@@ -271,7 +297,7 @@ namespace UnHingedIndustries.uhiANIM {
                     includeOf
                 );
 
-                return new AnimationSegmentMode(
+                return new PlainAnimationSegmentMode(
                     modeName,
                     triggers,
                     repeat,
@@ -380,7 +406,8 @@ namespace UnHingedIndustries.uhiANIM {
                         includeModeName,
                         gridTerminalSystem,
                         overrideVariables,
-                        includeOf != null ? includeOf : includes
+                        includeOf != null ? includeOf : includes,
+                        false
                     ).Steps;
                 }
 
@@ -428,26 +455,71 @@ namespace UnHingedIndustries.uhiANIM {
             }
         }
 
+        public interface AnimationSegmentMode {
+            bool Repeat { get; }
+            List<IAnimationStep> Steps { get; }
+            int Priority { get; }
+            List<string> Triggers { get; }
+            string Name { get; }
+
+            void OnActivated();
+            void OnDeactivated();
+        }
+
+        public class LazyAnimationSegmentMode : AnimationSegmentMode {
+            public bool Repeat => _delegate.Repeat;
+            public List<IAnimationStep> Steps => _delegate.Steps;
+            public int Priority { get; }
+            public List<string> Triggers { get; }
+            public string Name { get; }
+
+            AnimationSegmentMode _delegate;
+            Func<AnimationSegmentMode> _createMode;
+
+            public LazyAnimationSegmentMode(
+                string name,
+                List<string> triggers,
+                int priority,
+                Func<AnimationSegmentMode> createMode
+            ) {
+                Name = name;
+                Triggers = triggers;
+                Priority = priority;
+                _createMode = createMode;
+            }
+
+            public void OnActivated() {
+                if (_delegate == null) {
+                    _delegate = _createMode();
+                }
+            }
+
+            public void OnDeactivated() {
+                _delegate = null;
+            }
+        }
+
         /**
         * Describes a particular mode of segment's animation, e.g. legs moving forward.
         */
-        public class AnimationSegmentMode {
-            public readonly string Name;
-            public readonly List<string> Triggers;
+        public class PlainAnimationSegmentMode : AnimationSegmentMode {
+            public bool Repeat { get; }
+            public List<IAnimationStep> Steps { get; }
+            public int Priority { get; }
+            public List<string> Triggers { get; }
+            public string Name { get; }
 
-            public readonly bool Repeat;
-
-            public readonly int Priority;
-
-            public readonly List<IAnimationStep> Steps;
-
-            public AnimationSegmentMode(string name, List<string> triggers, bool repeat, int priority, List<IAnimationStep> steps) {
+            public PlainAnimationSegmentMode(string name, List<string> triggers, bool repeat, int priority, List<IAnimationStep> steps) {
                 Name = name;
                 Triggers = triggers;
                 Repeat = repeat;
                 Priority = priority;
                 Steps = steps;
             }
+
+            public void OnActivated() { }
+
+            public void OnDeactivated() { }
         }
 
         /**
@@ -685,8 +757,31 @@ namespace UnHingedIndustries.uhiANIM {
         }
 
         public class AnimationSegmentProgress {
-            public AnimationSegmentMode ActiveMode;
-            public int ActiveStepId = -1;
+            public AnimationSegmentMode ActiveMode {
+                get { return _activeMode; }
+                set {
+                    if (value != _activeMode) {
+                        if (value != null) {
+                            value.OnActivated();
+                        }
+
+                        if (_activeMode != null) {
+                            _activeMode.OnDeactivated();
+                        }
+                    }
+
+                    _activeStepId = -1;
+                    _activeMode = value;
+                }
+            }
+
+            public int ActiveStepId {
+                get { return _activeStepId; }
+                set { _activeStepId = value; }
+            }
+
+            AnimationSegmentMode _activeMode;
+            int _activeStepId = -1;
         }
 
         /**
@@ -776,6 +871,7 @@ namespace UnHingedIndustries.uhiANIM {
 
         void SetupAnimation() {
             Echo("Setting up animation...");
+            _peakRuntimeComplexity = 0;
             _animation = new Animation(Me, GridTerminalSystem);
 
             _segmentsProgress = _animation.SegmentNamesToSegments.Values.ToDictionary(segment => segment, segment => new AnimationSegmentProgress());
@@ -795,12 +891,12 @@ namespace UnHingedIndustries.uhiANIM {
                                                         var progress = _segmentsProgress[segment];
                                                         if (progress.ActiveMode != foundMode) {
                                                             progress.ActiveMode = foundMode;
-                                                            progress.ActiveStepId = -1;
                                                         }
                                                     }
                                                 });
                                             }).ToList();
 
+            Echo("Animation setup complexity: " + GetScriptComplexity() + "%");
             Echo("Animation setup completed.");
         }
 
@@ -968,6 +1064,8 @@ namespace UnHingedIndustries.uhiANIM {
             Me.CustomData = deserializedValue.ToString();
         }
 
+        int _peakRuntimeComplexity = 0;
+
         public void Main(string argument, UpdateType updateSource) {
             var screenTextBuilder = new StringBuilder();
             screenTextBuilder.Append("UnHinged Industries ANIM System\nVersion " + ScriptVersion + "\n\n");
@@ -1058,13 +1156,25 @@ namespace UnHingedIndustries.uhiANIM {
                     }
 
                     screenTextBuilder.Append(" > " + segment.Name + "." + mode.Name + "." + progress.ActiveStepId + '\n');
-                    var activeStep = mode.Steps[progress.ActiveStepId];
+                    if (progress.ActiveStepId != -1) {
+                        var activeStep = mode.Steps[progress.ActiveStepId];
 
-                    if (doTrigger) activeStep.Trigger(_segmentsProgress, argument, input);
+                        if (doTrigger) activeStep.Trigger(_segmentsProgress, argument, input);
+                    }
                 }
             }
 
+            var currentComplexity = GetScriptComplexity();
+            if (currentComplexity > _peakRuntimeComplexity) {
+                _peakRuntimeComplexity = currentComplexity;
+            }
+
+            screenTextBuilder.Append("\nPeak animation runtime complexity: " + _peakRuntimeComplexity + "%");
             GetInfoSurface().WriteText(screenTextBuilder.ToString());
+        }
+
+        int GetScriptComplexity() {
+            return (Runtime.CurrentInstructionCount * 100) / Runtime.MaxInstructionCount;
         }
     }
 }

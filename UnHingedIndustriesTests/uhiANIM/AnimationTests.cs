@@ -124,6 +124,19 @@ namespace UnHingedIndustriesTests.uhiANIM {
                 new List<string> {"NONE"},
                 subDefinitionMode.Triggers
             );
+            
+            // and lazy mode is setup
+            var lazyMode = animation.SegmentNamesToSegments["someLazySegment"].ModeNameToMode["someLazyMode"];
+            Assert.IsInstanceOf<Program.LazyAnimationSegmentMode>(lazyMode);
+            Assert.Throws<NullReferenceException>(() => {
+                var ignore = lazyMode.Steps;
+            });
+            lazyMode.OnActivated();
+            Assert.AreEqual(7, lazyMode.Steps.Count);
+            lazyMode.OnDeactivated();
+            Assert.Throws<NullReferenceException>(() => {
+                var ignore = lazyMode.Steps;
+            });
         }
 
         [Test]
