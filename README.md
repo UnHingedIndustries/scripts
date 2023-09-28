@@ -1,5 +1,6 @@
-[![Deployment Status](https://img.shields.io/github/workflow/status/UnhingedIndustries/scripts/Deploy%20scripts?label=Deployment&logo=steam&logoColor=lightblue)](https://github.com/UnHingedIndustries/scripts/actions/workflows/deploy.yml)
-[![Tests Status](https://img.shields.io/github/workflow/status/UnhingedIndustries/scripts/Run%20all%20tests?label=Tests&logo=csharp&logoColor=lightgreen)](https://github.com/UnHingedIndustries/scripts/actions/workflows/test.yml)
+[![Deployment Status](https://img.shields.io/github/actions/workflow/status/UnHingedIndustries/scripts/deploy.yml?label=Deployment&logo=steam&logoColor=lightblue)](https://github.com/UnHingedIndustries/scripts/actions/workflows/deploy.yml)
+[![Tests Status](https://img.shields.io/github/actions/workflow/status/UnHingedIndustries/scripts/test.yml?label=Tests&logo=csharp&logoColor=lightgreen)](https://github.com/UnHingedIndustries/scripts/actions/workflows/test.yml)
+
 [![License: WTFPL](https://img.shields.io/badge/License-WTFPL-red.svg)](http://www.wtfpl.net/txt/copying/)
 
 ## Local setup
