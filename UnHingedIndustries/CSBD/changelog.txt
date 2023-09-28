@@ -1,1 +1,1 @@
-Fix spelling error (rename "breaking" thrusters to "braking" thrusters)
+Upgrade Space Engineers shared libraries (no effect on the script)

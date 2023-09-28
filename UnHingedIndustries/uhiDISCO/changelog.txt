@@ -1,4 +1,1 @@
-Initial script prototype implementation
-Add Starburst effect
-Add Rolling effect
-Add Fade effect
+Upgrade Space Engineers shared libraries (no effect on the script)

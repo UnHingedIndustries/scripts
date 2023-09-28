@@ -1,1 +1,1 @@
-Allow lazy initialization of Animation Modes
+Upgrade Space Engineers shared libraries (no effect on the script)
